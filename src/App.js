@@ -22,19 +22,21 @@ function App() {
 		context.drawImage(image, 0, 0);
 	}
 
-	async function getImage() {
-		let img = await invoke("get_image");
-
-		return img;
-	}
-
-	async function displayNewImage() {
-		let img = await getImage();
-
-		updateCanvasImage(img);
-	}
-
 	useEffect(() => {
+		async function getImage() {
+			let img = await invoke("get_image");
+
+			return img;
+		}
+
+		async function displayNewImage() {
+			let img = await getImage();
+
+			console.log(img);
+
+			updateCanvasImage(img);
+		}
+
 		let interval = null;
 		if (display) {
 			displayNewImage();
@@ -45,7 +47,7 @@ function App() {
 			clearInterval(interval);
 		}
 		return () => clearInterval(interval);
-	}, [display, displayNewImage]);
+	}, [display]);
 
 	return (
 		<div className="App">
