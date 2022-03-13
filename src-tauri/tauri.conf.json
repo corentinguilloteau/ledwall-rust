@@ -49,9 +49,7 @@
 		"updater": {
 			"active": false
 		},
-		"allowlist": {
-			"all": {}
-		},
+		"allowlist": {},
 		"windows": [
 			{
 				"title": "TSM - Ledwall Controller",
