@@ -11,42 +11,48 @@ function App() {
 		invoke("get_image");
 	}
 
-	const canvasRef = useRef(null);
+	const canvasRef = useRef<HTMLCanvasElement>(null);
 
-	function updateCanvasImage(imageSrc) {
-		const context = canvasRef.current.getContext("2d");
+	function updateCanvasImage(imageSrc: string) {
+		if (canvasRef.current !== null) {
+			const context = canvasRef.current.getContext("2d");
 
-		var image = new Image();
-		image.src = imageSrc;
+			if (context === null) return;
 
-		context.drawImage(image, 0, 0);
+			var image = new Image();
+			image.src = imageSrc;
+
+			context.drawImage(image, 0, 0);
+		}
 	}
 
 	useEffect(() => {
-		async function getImage() {
-			let img = await invoke("get_image");
+		async function getImage(): Promise<string> {
+			let img: string = await invoke("get_image");
 
 			return img;
 		}
 
 		async function displayNewImage() {
-			let img = await getImage();
+			let img: string = await getImage();
 
 			console.log(img);
 
 			updateCanvasImage(img);
 		}
 
-		let interval = null;
+		let interval: ReturnType<typeof setTimeout> | undefined;
 		if (display) {
 			displayNewImage();
 			interval = setInterval(() => {
 				displayNewImage();
 			}, 33);
 		} else if (!display) {
-			clearInterval(interval);
+			if (typeof interval !== "undefined") clearInterval(interval);
 		}
-		return () => clearInterval(interval);
+		return () => {
+			if (typeof interval !== "undefined") clearInterval(interval);
+		};
 	}, [display]);
 
 	return (
