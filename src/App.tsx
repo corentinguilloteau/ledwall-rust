@@ -36,8 +36,6 @@ function App() {
 		async function displayNewImage() {
 			let img: string = await getImage();
 
-			console.log(img);
-
 			updateCanvasImage(img);
 		}
 
