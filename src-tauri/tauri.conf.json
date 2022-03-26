@@ -53,20 +53,16 @@
 		"windows": [
 			{
 				"title": "TSM - Ledwall Controller",
-				"width": 800,
-				"height": 600,
+				"width": 1240,
+				"height": 720,
 				"resizable": true,
-				"fullscreen": false
+				"fullscreen": false,
+				"minWidth": 1240,
+				"minHeight": 720
 			}
 		],
 		"security": {
 			"csp": null
-		},
-		"pattern": {
-			"use": "isolation",
-			"options": {
-				"dir": "../dist-isolation"
-			}
 		}
 	}
 }
