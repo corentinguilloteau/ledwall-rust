@@ -1,9 +1,11 @@
 import { AppShell, Badge, Button, Grid, Group, SimpleGrid } from "@mantine/core";
 import React from "react";
 import { Route, Routes } from "react-router-dom";
+import Footer from "./Footer";
 import Navbar from "./Navbar";
 import ConfigPage from "./pages/ConfigPage";
 import ConsolePage from "./pages/ConsolePage";
+import ControlPage from "./pages/ControlPage";
 import GuidePage from "./pages/GuidePage";
 
 class MainApp extends React.Component {
@@ -31,7 +33,7 @@ class MainApp extends React.Component {
 						}}>
 						<Routes>
 							<Route path="/guide" element={<GuidePage />}></Route>
-							<Route path="/control" element={<ConsolePage />}></Route>
+							<Route path="/control" element={<ControlPage />}></Route>
 							<Route path="/config" element={<ConfigPage />}></Route>
 							<Route path="/console" element={<ConsolePage />}></Route>
 							<Route path="*" element={<GuidePage />}></Route>
@@ -43,23 +45,7 @@ class MainApp extends React.Component {
 						flex: "0 1 auto",
 						flexBasis: 0,
 					}}>
-					<Group
-						sx={(theme) => ({
-							padding: theme.spacing.xs,
-							borderTop: `1px solid ${
-								theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
-							}`,
-							color: theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
-							backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0],
-						})}
-						position="right">
-						<Badge size="md" color="green" variant="filled">
-							Running
-						</Badge>
-						<Badge size="md" color="green" variant="outline">
-							15 fps
-						</Badge>
-					</Group>
+					<Footer></Footer>
 				</Grid.Col>
 			</Grid>
 		);
