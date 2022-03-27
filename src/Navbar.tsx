@@ -1,16 +1,15 @@
 import { Box, Group, Navbar as MantineNavbar, ThemeIcon, Title, UnstyledButton, Text } from "@mantine/core";
 import React from "react";
 import { Link, NavLink } from "react-router-dom";
-import { AdjustmentsHorizontal, Home, Terminal2 } from "tabler-icons-react";
+import { AdjustmentsHorizontal, Home, Power, Terminal2 } from "tabler-icons-react";
 
 interface MainLinkProps {
 	icon: React.ReactNode;
-	color: string;
 	label: string;
 	link: string;
 }
 
-function MainLink({ icon, color, label }: MainLinkProps) {
+function MainLink({ icon, label }: MainLinkProps) {
 	return (
 		<UnstyledButton
 			sx={(theme) => ({
@@ -26,9 +25,7 @@ function MainLink({ icon, color, label }: MainLinkProps) {
 				},
 			})}>
 			<Group>
-				<ThemeIcon color={color} variant="light">
-					{icon}
-				</ThemeIcon>
+				<ThemeIcon variant="filled">{icon}</ThemeIcon>
 
 				<Text size="sm">{label}</Text>
 			</Group>
@@ -37,9 +34,10 @@ function MainLink({ icon, color, label }: MainLinkProps) {
 }
 
 const data = [
-	{ icon: <Home size={16} />, color: "pink", label: "Guide", link: "/guide" },
-	{ icon: <AdjustmentsHorizontal size={16} />, color: "pink", label: "Configuration", link: "/config" },
-	{ icon: <Terminal2 size={16} />, color: "pink", label: "Console", link: "/console" },
+	{ icon: <Home size={16} />, label: "Guide", link: "/guide" },
+	{ icon: <Power size={16} />, label: "Commandes", link: "/control" },
+	{ icon: <AdjustmentsHorizontal size={16} />, label: "Configuration", link: "/config" },
+	{ icon: <Terminal2 size={16} />, label: "Console", link: "/console" },
 ];
 
 function MainLinks() {
@@ -54,7 +52,7 @@ function MainLinks() {
 class Navbar extends React.Component {
 	render() {
 		return (
-			<MantineNavbar width={{ base: 260 }} p="xs">
+			<MantineNavbar width={{ base: 260 }} height="100%" p="xs">
 				<MantineNavbar.Section mt="xs">
 					<Box
 						sx={(theme) => ({

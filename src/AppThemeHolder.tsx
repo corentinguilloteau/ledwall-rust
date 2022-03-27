@@ -6,6 +6,7 @@ function App() {
 		<MantineProvider
 			theme={{
 				colorScheme: "dark",
+				primaryColor: "violet",
 			}}>
 			<MainApp />
 		</MantineProvider>
