@@ -11,7 +11,7 @@ export class SlabSelector extends Component {
 					alignItems: "center",
 					aliggnContent: "center",
 					borderRight: `solid 1px ${
-						theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+						theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 					}`,
 					justifyContent: "center",
 					alignContent: "center",

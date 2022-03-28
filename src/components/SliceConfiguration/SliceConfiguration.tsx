@@ -30,7 +30,7 @@ export class SliceConfiguration extends Component {
 					<Paper
 						style={{ flex: "1", display: "flex", overflow: "auto" }}
 						sx={(theme) => ({
-							backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[4],
+							backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
 						})}>
 						<ScrollArea
 							style={{ flex: 1, display: "flex" }}
@@ -58,7 +58,7 @@ export class SliceConfiguration extends Component {
 									spacing={0}
 									sx={(theme) => ({
 										borderBottom: `solid 1px ${
-											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 										}`,
 										flex: 1,
 										flexWrap: "nowrap",
@@ -81,7 +81,7 @@ export class SliceConfiguration extends Component {
 									spacing={0}
 									sx={(theme) => ({
 										borderBottom: `solid 1px ${
-											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 										}`,
 										flex: 1,
 										flexWrap: "nowrap",
@@ -103,7 +103,7 @@ export class SliceConfiguration extends Component {
 									spacing={0}
 									sx={(theme) => ({
 										borderBottom: `solid 1px ${
-											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 										}`,
 										flex: 1,
 										flexWrap: "nowrap",
@@ -125,7 +125,7 @@ export class SliceConfiguration extends Component {
 									spacing={0}
 									sx={(theme) => ({
 										borderBottom: `solid 1px ${
-											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 										}`,
 										flex: 1,
 										display: "flex",
