@@ -42,10 +42,12 @@ class MainApp extends React.Component {
 							root: {
 								flex: 1,
 								display: "flex",
+								overflow: "auto",
 							},
 							body: {
 								flex: 1,
 								display: "flex",
+								overflow: "auto",
 							},
 							main: {
 								backgroundColor:

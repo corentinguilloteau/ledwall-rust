@@ -8,10 +8,17 @@ class ConfigPage extends React.Component {
 	render() {
 		return (
 			<Page title="Configuration">
-				<Grid style={{ flex: "1", flexDirection: "column" }}>
-					<Grid.Col style={{ flex: "1 0 auto", display: "flex" }}>
+				<Grid
+					style={{
+						flex: "1",
+						display: "flex",
+						flexDirection: "column",
+						flexWrap: "nowrap",
+						overflow: "auto",
+					}}>
+					<Grid.Col style={{ flex: "1 1 auto", display: "flex", overflow: "auto" }}>
 						<Paper
-							style={{ flex: "1 0 auto", display: "flex" }}
+							style={{ flex: "1 1 auto", display: "flex", overflow: "auto" }}
 							sx={(theme) => ({
 								border: `1px solid ${
 									theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
@@ -20,12 +27,13 @@ class ConfigPage extends React.Component {
 							})}>
 							<Tabs
 								style={{
-									flex: "1 0 auto",
+									flex: "1 1 auto",
 									display: "flex",
 									flexDirection: "column",
+									overflow: "auto",
 								}}
 								styles={{
-									body: { paddingTop: 0, flex: 1, display: "flex" },
+									body: { paddingTop: 0, flex: 1, display: "flex", overflow: "auto" },
 								}}>
 								<Tabs.Tab
 									label={
@@ -43,7 +51,8 @@ class ConfigPage extends React.Component {
 												<X />
 											</ActionIcon>
 										</Group>
-									}>
+									}
+									style={{ overflow: "auto" }}>
 									<SliceConfiguration></SliceConfiguration>
 								</Tabs.Tab>
 								<Tabs.Tab icon={<Plus size="1rem"></Plus>}></Tabs.Tab>

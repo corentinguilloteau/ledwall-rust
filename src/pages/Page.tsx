@@ -12,6 +12,7 @@ export default class Page extends Component<PageProps> {
 				sx={(theme) => ({
 					flexDirection: "column",
 					flexWrap: "nowrap",
+					overflow: "auto",
 					flex: 1,
 					color: theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
 				})}

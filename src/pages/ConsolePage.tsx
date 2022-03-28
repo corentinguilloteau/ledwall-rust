@@ -19,7 +19,9 @@ class ConsolePage extends React.Component {
 						}`,
 						borderRadius: `${theme.radius["md"]}px`,
 					})}>
-					<Text>Test</Text>
+					<Text>
+						aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+					</Text>
 					<Text>Test</Text>
 					<Text>Test</Text>
 					<Text>Test</Text>
