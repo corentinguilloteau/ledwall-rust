@@ -1,4 +1,4 @@
-import { Button, ColorInput, Grid, Group, NumberInput, Select, SimpleGrid } from "@mantine/core";
+import { Button, ColorInput, Grid, Group, NumberInput, ScrollArea, Select, SimpleGrid, Title } from "@mantine/core";
 import { borderLeft } from "@mui/system";
 import React, { Component } from "react";
 
@@ -7,11 +7,70 @@ export class SliceConfiguration extends Component {
 		return (
 			<Grid
 				sx={(theme) => ({
-					flex: "1",
+					flex: "1 1 auto",
+					overflow: "auto",
+					flexWrap: "nowrap",
 				})}
 				m={0}
 				p="md">
-				<Grid.Col style={{ flex: "1" }}>aaa</Grid.Col>
+				<Grid.Col style={{ flex: "1", display: "flex", overflow: "auto" }}>
+					<ScrollArea style={{ flex: 1 }} type="auto">
+						<Title order={1}>a</Title>
+						<Title order={2}>
+							aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+							<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>
+							a<br />
+						</Title>
+						<Title order={1}>a</Title>
+					</ScrollArea>
+				</Grid.Col>
 				<Grid.Col
 					sx={(theme) => ({
 						flex: "0 1 auto",
