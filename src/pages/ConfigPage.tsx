@@ -46,8 +46,6 @@ class ConfigPage extends React.Component {
 									}>
 									<SliceConfiguration></SliceConfiguration>
 								</Tabs.Tab>
-								<Tabs.Tab label="Slice 2"></Tabs.Tab>
-								<Tabs.Tab label="Slice 3"></Tabs.Tab>
 								<Tabs.Tab icon={<Plus size="1rem"></Plus>}></Tabs.Tab>
 							</Tabs>
 						</Paper>
