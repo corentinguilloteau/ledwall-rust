@@ -1,6 +1,6 @@
-import { Button, Badge, Grid, Group, SimpleGrid, Tabs, Tooltip, Paper } from "@mantine/core";
+import { Button, Badge, Grid, Group, SimpleGrid, Tabs, Tooltip, Paper, ActionIcon, Text } from "@mantine/core";
 import React from "react";
-import { DeviceFloppy, Folder, Plus } from "tabler-icons-react";
+import { DeviceFloppy, Folder, Plus, X } from "tabler-icons-react";
 import { SliceConfiguration } from "../components/SliceConfiguration";
 import Page from "./Page";
 
@@ -27,7 +27,23 @@ class ConfigPage extends React.Component {
 								styles={{
 									body: { paddingTop: 0, flex: 1, display: "flex" },
 								}}>
-								<Tabs.Tab label="Slice 1">
+								<Tabs.Tab
+									label={
+										<Group spacing="xs">
+											Slice 1
+											<ActionIcon
+												size="xs"
+												sx={(theme) => ({
+													color: "inherit",
+													"&:hover": {
+														color: theme.colors.red[4],
+													},
+												})}
+												p={0}>
+												<X />
+											</ActionIcon>
+										</Group>
+									}>
 									<SliceConfiguration></SliceConfiguration>
 								</Tabs.Tab>
 								<Tabs.Tab label="Slice 2"></Tabs.Tab>
