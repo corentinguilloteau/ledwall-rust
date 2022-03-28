@@ -1,6 +1,19 @@
-import { Button, ColorInput, Grid, Group, NumberInput, ScrollArea, Select, SimpleGrid, Title } from "@mantine/core";
-import { borderLeft } from "@mui/system";
+import {
+	Button,
+	ColorInput,
+	Container,
+	Grid,
+	Group,
+	NumberInput,
+	Paper,
+	ScrollArea,
+	Select,
+	SimpleGrid,
+	Title,
+} from "@mantine/core";
+import { borderLeft, flexbox } from "@mui/system";
 import React, { Component } from "react";
+import { SlabSelector } from "../SlabSelector";
 
 export class SliceConfiguration extends Component {
 	render() {
@@ -13,63 +26,125 @@ export class SliceConfiguration extends Component {
 				})}
 				m={0}
 				p="md">
-				<Grid.Col style={{ flex: "1", display: "flex", overflow: "auto" }}>
-					<ScrollArea style={{ flex: 1 }} type="auto">
-						<Title order={1}>a</Title>
-						<Title order={2}>
-							aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-							<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>
-							a<br />
-						</Title>
-						<Title order={1}>a</Title>
-					</ScrollArea>
+				<Grid.Col style={{ flex: "1", display: "flex", overflow: "auto" }} p="xs" mr="md">
+					<Paper
+						style={{ flex: "1", display: "flex", overflow: "auto" }}
+						sx={(theme) => ({
+							backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[4],
+						})}>
+						<ScrollArea
+							style={{ flex: 1, display: "flex" }}
+							type="auto"
+							styles={{
+								viewport: {
+									display: "flex",
+									flex: 1,
+									"& > div": {
+										height: "100%",
+									},
+								},
+							}}>
+							<Container
+								style={{
+									maxWidth: "none",
+									padding: 0,
+									height: "100%",
+									display: "flex",
+									flexDirection: "column",
+								}}
+								p={0}>
+								<Group
+									grow
+									spacing={0}
+									sx={(theme) => ({
+										borderBottom: `solid 1px ${
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+										}`,
+										flex: 1,
+										flexWrap: "nowrap",
+										display: "flex",
+										alignItems: "stretch",
+
+										"&:last-child": {
+											borderBottom: "none",
+										},
+									})}>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+								</Group>
+								<Group
+									grow
+									spacing={0}
+									sx={(theme) => ({
+										borderBottom: `solid 1px ${
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+										}`,
+										flex: 1,
+										flexWrap: "nowrap",
+										display: "flex",
+										alignItems: "stretch",
+										"&:last-child": {
+											borderBottom: "none",
+										},
+									})}>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+								</Group>
+								<Group
+									grow
+									spacing={0}
+									sx={(theme) => ({
+										borderBottom: `solid 1px ${
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+										}`,
+										flex: 1,
+										flexWrap: "nowrap",
+										display: "flex",
+										alignItems: "stretch",
+										"&:last-child": {
+											borderBottom: "none",
+										},
+									})}>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+								</Group>
+								<Group
+									grow
+									spacing={0}
+									sx={(theme) => ({
+										borderBottom: `solid 1px ${
+											theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[7]
+										}`,
+										flex: 1,
+										display: "flex",
+										flexWrap: "nowrap",
+										alignItems: "stretch",
+										"&:last-child": {
+											borderBottom: "none",
+										},
+									})}>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+									<SlabSelector></SlabSelector>
+								</Group>
+							</Container>
+						</ScrollArea>
+					</Paper>
 				</Grid.Col>
 				<Grid.Col
 					sx={(theme) => ({
