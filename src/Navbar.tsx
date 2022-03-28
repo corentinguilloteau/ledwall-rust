@@ -52,7 +52,7 @@ function MainLinks() {
 class Navbar extends React.Component {
 	render() {
 		return (
-			<MantineNavbar width={{ base: 260 }} height="100%" p="xs">
+			<MantineNavbar style={{ flex: "0 0 260px" }} height="100%" p="xs">
 				<MantineNavbar.Section mt="xs">
 					<Box
 						sx={(theme) => ({
