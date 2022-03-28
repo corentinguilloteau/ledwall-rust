@@ -7,7 +7,7 @@ class ConsolePage extends React.Component {
 	render() {
 		return (
 			<Page title="Console">
-				<Paper shadow="xs" p="md" component={ScrollArea} type="auto">
+				<Paper shadow="xs" p="md" component={ScrollArea} type="auto" style={{ flex: "1" }}>
 					<Text>Test</Text>
 					<Text>Test</Text>
 					<Text>Test</Text>

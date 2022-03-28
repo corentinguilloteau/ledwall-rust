@@ -18,7 +18,7 @@ export default class Page extends Component<PageProps> {
 				m="0">
 				<Title order={1}>{this.props.title}</Title>
 				<Space h="md"></Space>
-				<Grid.Col style={{ flex: "1", display: "flex" }}>{this.props.children}</Grid.Col>
+				<Grid.Col style={{ flex: "1", display: "flex", overflow: "auto" }}>{this.props.children}</Grid.Col>
 			</Grid>
 		);
 	}
