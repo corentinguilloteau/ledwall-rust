@@ -33,13 +33,37 @@
 		"build": "react-scripts build",
 		"test": "react-scripts test",
 		"eject": "react-scripts eject",
-		"tauri": "tauri"
+		"tauri": "tauri",
+		"prepare": "husky install",
+		"postinstall": "husky install"
 	},
 	"eslintConfig": {
 		"extends": [
 			"react-app",
 			"react-app/jest"
 		]
+	},
+	"commitlint": {
+		"extends": [
+			"@commitlint/config-conventional"
+		],
+		"rules": {
+			"scope-empty": [
+				2,
+				"never"
+			],
+			"scope-enum": [
+				2,
+				"always",
+				[
+					"config",
+					"frontend",
+					"tauri",
+					"spout",
+					"global"
+				]
+			]
+		}
 	},
 	"browserslist": {
 		"production": [
@@ -54,7 +78,10 @@
 		]
 	},
 	"devDependencies": {
+		"@commitlint/cli": "^16.2.3",
+		"@commitlint/config-conventional": "^16.2.1",
 		"@tauri-apps/cli": "^1.0.0-rc.8",
-		"cross-env": "^7.0.3"
+		"cross-env": "^7.0.3",
+		"husky": "^7.0.0"
 	}
 }
