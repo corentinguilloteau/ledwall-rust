@@ -1,10 +1,26 @@
-import { ActionIcon, Button, Grid, Group, Tooltip, useMantineTheme } from "@mantine/core";
-import React from "react";
-import { PlayerPlay, PlayerStop, TestPipe } from "tabler-icons-react";
+import { Grid } from "@mantine/core";
+import { useState } from "react";
+import { LedwallControlHolder, LedwallControlStatus, LedwallControlTests } from "../../data/types/LedwallControlTypes";
 import Page from "../Page";
+import ControlPageButtons from "./ControlPageButtons";
+import ControlPageIcon from "./ControlPageIcon";
 
 function ControlPage() {
-	let theme = useMantineTheme();
+	let initialStatus: LedwallControlHolder = {
+		status: "stop",
+	};
+
+	let [status, setStatus] = useState(initialStatus as LedwallControlHolder);
+
+	function onStartClick() {
+		setStatus((value) => ({ status: "display" }));
+	}
+
+	function onStopClick() {
+		setStatus((value) => ({ status: "stop" }));
+	}
+
+	function onTestClick(testType: LedwallControlTests) {}
 
 	return (
 		<Page title="Commandes">
@@ -24,45 +40,15 @@ function ControlPage() {
 						alignItems: "center",
 						justifyContent: "center",
 					}}>
-					<PlayerStop
-						style={{
-							height: "200px",
-							width: "auto",
-							border: `3px solid ${theme.colors.red[6]}`,
-							borderRadius: theme.radius.xl,
-							stroke: theme.colors.red[6],
-							fill: theme.colors.red[6],
-						}}
-					/>
-					<PlayerPlay
-						style={{
-							height: "200px",
-							width: "auto",
-							border: `3px solid ${theme.colors.green[6]}`,
-							borderRadius: theme.radius.xl,
-							stroke: theme.colors.green[6],
-							fill: theme.colors.green[6],
-						}}
-					/>
-					<TestPipe
-						style={{
-							height: "200px",
-							width: "auto",
-							border: `3px solid ${theme.colors.yellow[6]}`,
-							borderRadius: theme.radius.xl,
-							stroke: theme.colors.yellow[6],
-						}}
-					/>
+					<ControlPageIcon status={status.status} />
 				</Grid.Col>
 				<Grid.Col style={{ flex: "1 1 auto", display: "flex", alignItems: "center" }}>
-					<Group grow style={{ flex: 1, justifyContent: "space-evenly" }}>
-						<Button style={{ flex: "0 0 auto" }} color="green">
-							Diffuser le flux
-						</Button>
-						<Button style={{ flex: "0 0 auto" }} color="yellow">
-							Tester la diffusion
-						</Button>
-					</Group>
+					<ControlPageButtons
+						status={status}
+						onStartClick={onStartClick}
+						onStopClick={onStopClick}
+						onTestClick={onTestClick}
+					/>
 				</Grid.Col>
 			</Grid>
 		</Page>

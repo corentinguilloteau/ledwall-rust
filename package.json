@@ -21,6 +21,7 @@
 		"@types/react-dom": "^17.0.13",
 		"react": "^17.0.2",
 		"react-dom": "^17.0.2",
+		"react-query": "^3.34.19",
 		"react-router-dom": "^6.2.2",
 		"react-scripts": "5.0.0",
 		"react-spring": "^9.4.4",
@@ -46,24 +47,7 @@
 	"commitlint": {
 		"extends": [
 			"@commitlint/config-conventional"
-		],
-		"rules": {
-			"scope-empty": [
-				2,
-				"never"
-			],
-			"scope-enum": [
-				2,
-				"always",
-				[
-					"config",
-					"frontend",
-					"tauri",
-					"spout",
-					"global"
-				]
-			]
-		}
+		]
 	},
 	"browserslist": {
 		"production": [
@@ -82,6 +66,7 @@
 		"@commitlint/config-conventional": "^16.2.1",
 		"@tauri-apps/cli": "^1.0.0-rc.8",
 		"cross-env": "^7.0.3",
+		"eslint": "^8.12.0",
 		"husky": "^7.0.0"
 	}
 }
