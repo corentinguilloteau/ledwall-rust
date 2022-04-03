@@ -1,12 +1,12 @@
 import { AppShell, Badge, Box, Button, Grid, Group, SimpleGrid } from "@mantine/core";
 import React from "react";
 import { Route, Routes } from "react-router-dom";
-import Footer from "./Footer";
-import Navbar from "./Navbar";
-import ConfigPage from "./pages/ConfigPage";
-import ConsolePage from "./pages/ConsolePage";
-import ControlPage from "./pages/ControlPage";
-import GuidePage from "./pages/GuidePage";
+import Footer from "./components/Footer/Footer";
+import Navbar from "./components/NavBar/Navbar";
+import ConfigPage from "./pages/ConfigPage/ConfigPage";
+import ConsolePage from "./pages/ConsolePage/ConsolePage";
+import ControlPage from "./pages/ControlPage/ControlPage";
+import GuidePage from "./pages/GuidePage/GuidePage";
 
 class MainApp extends React.Component {
 	render() {

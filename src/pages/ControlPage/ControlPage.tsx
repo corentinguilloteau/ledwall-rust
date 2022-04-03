@@ -1,7 +1,7 @@
 import { ActionIcon, Button, Grid, Group, Tooltip, useMantineTheme } from "@mantine/core";
 import React from "react";
 import { PlayerPlay, PlayerStop, TestPipe } from "tabler-icons-react";
-import Page from "./Page";
+import Page from "../Page";
 
 function ControlPage() {
 	let theme = useMantineTheme();

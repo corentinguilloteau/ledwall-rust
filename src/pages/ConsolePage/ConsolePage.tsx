@@ -1,7 +1,7 @@
 import { Group, Paper, Title, Text, ScrollArea, Grid, Space } from "@mantine/core";
 import { maxHeight } from "@mui/system";
 import React from "react";
-import Page from "./Page";
+import Page from "../Page";
 
 class ConsolePage extends React.Component {
 	render() {

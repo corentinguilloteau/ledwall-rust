@@ -1,8 +1,8 @@
 import { Button, Badge, Grid, Group, SimpleGrid, Tabs, Tooltip, Paper, ActionIcon, Text } from "@mantine/core";
 import React from "react";
 import { DeviceFloppy, Folder, Plus, X } from "tabler-icons-react";
-import { SliceConfiguration } from "../components/SliceConfiguration";
-import Page from "./Page";
+import { SliceConfiguration } from "../../components/SliceConfiguration";
+import Page from "../Page";
 
 class ConfigPage extends React.Component {
 	render() {

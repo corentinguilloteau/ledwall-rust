@@ -1,6 +1,6 @@
 import { Paper, ScrollArea, Text } from "@mantine/core";
 import React from "react";
-import Page from "./Page";
+import Page from "../Page";
 
 class GuidePage extends React.Component {
 	render() {
