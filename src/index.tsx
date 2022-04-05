@@ -4,12 +4,16 @@ import "./index.css";
 import AppThemeHolder from "./AppThemeHolder";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
+import { store } from "./data/store/store";
+import { Provider } from "react-redux";
 
 ReactDOM.render(
 	<React.StrictMode>
-		<BrowserRouter>
-			<AppThemeHolder />
-		</BrowserRouter>
+		<Provider store={store}>
+			<BrowserRouter>
+				<AppThemeHolder />
+			</BrowserRouter>
+		</Provider>
 	</React.StrictMode>,
 	document.getElementById("root")
 );
