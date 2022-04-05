@@ -9,12 +9,11 @@ export class SlabSelector extends Component {
 					display: "flex",
 					flex: 1,
 					alignItems: "center",
-					aliggnContent: "center",
+					alignContent: "center",
 					borderRight: `solid 1px ${
 						theme.colorScheme === "dark" ? theme.colors.dark[3] : theme.colors.gray[5]
 					}`,
 					justifyContent: "center",
-					alignContent: "center",
 					"&:last-child": {
 						borderRight: "none",
 					},
