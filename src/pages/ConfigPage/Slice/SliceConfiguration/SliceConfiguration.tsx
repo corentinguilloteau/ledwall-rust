@@ -45,7 +45,7 @@ export function SliceConfiguration(props: SliceConfigurationProps) {
 						theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
 					}`,
 				})}>
-				<Form />
+				<Form sliceId={props.sliceId} />
 			</Grid.Col>
 		</Grid>
 	);

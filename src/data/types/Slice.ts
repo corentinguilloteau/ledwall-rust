@@ -29,8 +29,8 @@ export const defaultSlice = {
 	slabWidth: 18,
 	color: "#FFFFFF",
 	slabs: [
-		[-1, -1, -1],
-		[-1, -1, -1],
+		[0, 0, 0],
+		[0, 0, 0],
 	],
 };
 
