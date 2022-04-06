@@ -24,8 +24,6 @@ export default function SlicesContainer() {
 		} else {
 			let numberTabKey = Number.parseInt(tabKey);
 
-			console.log(numberTabKey);
-
 			if (numberTabKey !== undefined) {
 				setActiveTab(numberTabKey);
 			}

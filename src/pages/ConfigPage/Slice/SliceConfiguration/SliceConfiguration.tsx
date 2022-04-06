@@ -34,7 +34,7 @@ export function SliceConfiguration(props: SliceConfigurationProps) {
 								},
 							},
 						}}>
-						<SlabsContainer />
+						<SlabsContainer sliceId={props.sliceId} />
 					</ScrollArea>
 				</Paper>
 			</Grid.Col>

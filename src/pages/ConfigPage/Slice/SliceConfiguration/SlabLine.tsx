@@ -1,8 +1,13 @@
 import { Group } from "@mantine/core";
 import React from "react";
-import { SlabSelector } from "../SlabSelector";
+import { SlabSelector } from "./SlabSelector";
 
-export default function SlabLine() {
+interface SlabLineProps {
+	line: number[];
+	onSlabIdChange: (slabX: number, payload: number) => void;
+}
+
+export default function SlabLine(props: SlabLineProps) {
 	return (
 		<Group
 			grow
@@ -17,12 +22,15 @@ export default function SlabLine() {
 					borderBottom: "none",
 				},
 			})}>
-			<SlabSelector></SlabSelector>
-			<SlabSelector></SlabSelector>
-			<SlabSelector></SlabSelector>
-			<SlabSelector></SlabSelector>
-			<SlabSelector></SlabSelector>
-			<SlabSelector></SlabSelector>
+			{props.line.map((slab: number, index: number) => {
+				return (
+					<SlabSelector
+						slabId={slab}
+						onSlabIdChange={(newSlabId: number) => {
+							props.onSlabIdChange(index, newSlabId);
+						}}></SlabSelector>
+				);
+			})}
 		</Group>
 	);
 }
