@@ -1,12 +1,16 @@
 import { ActionIcon, Group } from "@mantine/core";
-import React from "react";
+import { useDispatch } from "react-redux";
 import { X } from "tabler-icons-react";
+import { removeSlice } from "../../../data/store/slicesSlice";
 
 interface SliceLabelProps {
 	label: string;
+	sliceId: number;
 }
 
 export default function SliceLabel(props: SliceLabelProps) {
+	const dispatch = useDispatch();
+
 	return (
 		<Group spacing="xs">
 			{props.label}
@@ -18,7 +22,10 @@ export default function SliceLabel(props: SliceLabelProps) {
 						color: theme.colors.red[4],
 					},
 				})}
-				p={0}>
+				p={0}
+				onClick={() => {
+					dispatch(removeSlice(props.sliceId));
+				}}>
 				<X />
 			</ActionIcon>
 		</Group>
