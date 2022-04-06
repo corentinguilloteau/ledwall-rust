@@ -12,6 +12,7 @@ export const slicesSlice = createSlice({
 	reducers: {
 		addSlice: reducers.addSliceReducer,
 		removeSlice: reducers.removeSliceReducer,
+		setSliceSpoutName: reducers.setSliceSpoutNameReducer,
 		setSliceWidth: reducers.setSliceWidthReducer,
 		setSliceHeight: reducers.setSliceHeightReducer,
 		setSliceSlabWidth: reducers.setSliceSlabWidthReducer,
@@ -25,6 +26,7 @@ export const slicesSlice = createSlice({
 export const {
 	addSlice,
 	removeSlice,
+	setSliceSpoutName,
 	setSliceWidth,
 	setSliceHeight,
 	setSliceSlabWidth,

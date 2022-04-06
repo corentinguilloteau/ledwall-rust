@@ -3,12 +3,13 @@
     windows_subsystem = "windows"
 )]
 #![allow(non_snake_case)]
+mod api;
 use cxx::let_cxx_string;
 use image::codecs::bmp::BmpEncoder;
 use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
 use std::{
-    sync::{atomic::AtomicUsize, Arc, Mutex},
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
     vec,
@@ -34,7 +35,7 @@ fn get_image(data: tauri::State<SafeImageHolder>) -> String {
 
     let image = data.lock().unwrap();
 
-    imageEncoder.encode(
+    let _res = imageEncoder.encode(
         &image.image,
         image.image_size.width,
         image.image_size.height,
@@ -115,13 +116,14 @@ fn main() {
 
     let spoutSafeImageHolder = Arc::clone(&safeImageHolder);
 
-    let spoutThread = thread::spawn(move || {
+    let _spoutThread = thread::spawn(move || {
         spoutThreadMain(spoutSafeImageHolder);
     });
 
     tauri::Builder::default()
         .manage(safeImageHolder)
         .invoke_handler(tauri::generate_handler![get_image])
+        .invoke_handler(tauri::generate_handler![api::fetchSpoutNames])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

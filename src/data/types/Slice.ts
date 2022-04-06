@@ -1,4 +1,5 @@
 interface Slice {
+	spoutName: string | null;
 	width: number;
 	height: number;
 	slabHeight: number;
@@ -23,6 +24,7 @@ export interface SlabPayload<T> {
 }
 
 export const defaultSlice = {
+	spoutName: null,
 	width: 3,
 	height: 2,
 	slabHeight: 18,

@@ -9,6 +9,19 @@ export function addSliceReducer(state: Draft<SlicesState>) {
 	state.slices.push(defaultSlice);
 }
 
+export function setSliceSpoutNameReducer(
+	state: Draft<SlicesState>,
+	action: PayloadAction<SlicePayload<string | null>>
+) {
+	let sliceId = action.payload.sliceID;
+
+	if (identifiersSanityCheck(sliceId)) {
+		if (state.slices.length > sliceId) {
+			state.slices[sliceId].spoutName = action.payload.payload;
+		}
+	}
+}
+
 export function removeSliceReducer(state: Draft<SlicesState>, action: PayloadAction<number>) {
 	let sliceId = action.payload;
 
