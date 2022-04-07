@@ -5,6 +5,7 @@
 #![allow(non_snake_case)]
 mod api;
 mod controler;
+use api::ledwall_status_holder::LedwallStatusHolder;
 use cxx::let_cxx_string;
 use image::codecs::bmp::BmpEncoder;
 use spout_rust::ffi as spoutlib;
@@ -121,12 +122,13 @@ fn main() {
         spoutThreadMain(spoutSafeImageHolder);
     });
 
+    let safeLedwallStatusHolder = Arc::new(Mutex::new(LedwallStatusHolder::new()));
+
     tauri::Builder::default()
         .manage(safeImageHolder)
+        .manage(safeLedwallStatusHolder)
         .invoke_handler(tauri::generate_handler![get_image])
-        .invoke_handler(tauri::generate_handler![api::fetchSpoutNames])
-        .invoke_handler(tauri::generate_handler![api::testRPCStatusErrore])
-        .invoke_handler(tauri::generate_handler![api::testRPCStatusSuccess])
+        .invoke_handler(tauri::generate_handler![api::fetchSpoutNames, api::stopFrameSender, api::startFrameSender])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

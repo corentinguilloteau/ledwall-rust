@@ -2,13 +2,13 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum LedwallControlStatusEnum {
     Displaying,
     Stopped,
 }
 
-#[derive(Serialize)]
+#[derive(Debug)]
 pub struct LedwallControl {
     pub status: LedwallControlStatusEnum,
 }

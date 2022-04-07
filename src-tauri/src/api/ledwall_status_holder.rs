@@ -1,4 +1,4 @@
-use std::sync::{mpsc::Sender, Arc, RwLock};
+use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 
 use crate::controler::{createControler, ControlerMessage};
 
@@ -14,6 +14,8 @@ pub struct LedwallStatusHolder {
     messageSender: Option<Sender<ControlerMessage>>,
 }
 
+pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;
+
 impl LedwallStatusHolder {
     pub fn new() -> Self {
         LedwallStatusHolder {
@@ -26,7 +28,7 @@ impl LedwallStatusHolder {
         }
     }
 
-    pub fn run(mut self, slicesData: Vec<SliceData>) -> Result<(), ()> {
+    pub fn run(&mut self, slicesData: Vec<SliceData>) -> Result<(), ()> {
         let statusResult = self.status.write();
 
         let mut status;
@@ -53,17 +55,21 @@ impl LedwallStatusHolder {
         }
     }
 
-    pub fn stop(mut self) -> Result<(), ()> {
+    pub fn stop(&mut self) -> Result<(), ()> {
         let statusResult = self.status.write();
         let mut status;
+
+        println!("Stopping");
 
         match statusResult {
             Err(_) => return Err(()),
             Ok(s) => status = s,
         }
 
+        println!("Status: {:?}", *status);
+
         if status.status == LedwallControlStatusEnum::Displaying {
-            if let Some(sender) = self.messageSender {
+            if let Some(sender) = &self.messageSender {
                 match sender.send(ControlerMessage::Terminate) {
                     Err(_) => return Err(()),
                     _ => (()),

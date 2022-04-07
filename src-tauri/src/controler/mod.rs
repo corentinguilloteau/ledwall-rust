@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::api::slice::SliceData;
-use tokio;
+use tokio::{self, time::sleep};
 
 pub enum ControlerMessage {
     Terminate,
@@ -55,7 +55,8 @@ async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Sl
     }
 
     // 30 fps
-    let wait_time = Duration::from_millis(33);
+    // let wait_time = Duration::from_millis(33);
+    let wait_time = Duration::from_millis(1000);
 
     loop {
         let start = Instant::now();
@@ -97,7 +98,7 @@ async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Sl
         let runtime = start.elapsed();
 
         if let Some(remaining) = wait_time.checked_sub(runtime) {
-            thread::sleep(remaining);
+            sleep(remaining).await;
         } else {
             eprintln!("Main clock drift");
         }
@@ -128,6 +129,7 @@ async fn runSliceTask(
             None => return Ok(()),
         }
 
-        //
+        // Actual code
+        println!("Send frame (placeholder)");
     }
 }

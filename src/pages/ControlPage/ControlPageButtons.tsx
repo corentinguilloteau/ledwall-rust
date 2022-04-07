@@ -9,6 +9,7 @@ import {
 	LedwallControlTests,
 	LedwallControlTestsEnum,
 } from "../../data/types/LedwallControlTypes";
+import { defaultSlice } from "../../data/types/Slice";
 import useRPC from "../../hooks/useRPC";
 
 type OnOff = "on" | "off";
@@ -83,18 +84,35 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
-	let [startStatus, , , sendStartStopCommand] = useRPC(invoke, "testRPCStatusErrore");
+	let [startStatus, , , sendStartCommand] = useRPC(invoke, "startFrameSender", {
+		slices: [
+			{
+				spoutName: "test",
+				width: 3,
+				height: 2,
+				slabHeight: 18,
+				slabWidth: 18,
+				color: "#FFFFFF",
+				slabs: [
+					[0, 0, 0],
+					[0, 0, 0],
+				],
+			},
+		],
+	});
+
+	let [stopStatus, , , sendStopCommand] = useRPC(invoke, "stopFrameSender");
 
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
 		on: () => {
-			sendStartStopCommand()
+			sendStartCommand()
 				.then(() => {
 					props.onStartClick();
 				})
 				.catch((err) => console.log(err));
 		},
 		off: () => {
-			sendStartStopCommand()
+			sendStopCommand()
 				.then(() => {
 					props.onStopClick();
 				})
@@ -102,6 +120,36 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 		},
 	};
 
+	let startStopButtonComponent;
+
+	switch (startStopButton) {
+		case "on":
+			startStopButtonComponent = (
+				<Button
+					style={{ flex: "0 0 auto" }}
+					color={OnOffButtonColor[startStopButton]}
+					disabled={!startStopButtonEnabled}
+					onClick={OnOffButtonClick[startStopButton]}
+					loading={stopStatus === "loading"}
+					leftIcon={startStatus === "error" ? <HandStop /> : null}>
+					{OnOffButtonText[startStopButton]}
+				</Button>
+			);
+			break;
+		case "off":
+			startStopButtonComponent = (
+				<Button
+					style={{ flex: "0 0 auto" }}
+					color={OnOffButtonColor[startStopButton]}
+					disabled={!startStopButtonEnabled}
+					onClick={OnOffButtonClick[startStopButton]}
+					loading={startStatus === "loading"}
+					leftIcon={stopStatus === "error" ? <HandStop /> : null}>
+					{OnOffButtonText[startStopButton]}
+				</Button>
+			);
+			break;
+	}
 	return (
 		<Group grow style={{ flex: 1, justifyContent: "space-evenly" }}>
 			<div style={{ flex: "1", display: "flex", justifyContent: "center" }}>

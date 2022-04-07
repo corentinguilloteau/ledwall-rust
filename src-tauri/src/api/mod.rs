@@ -5,9 +5,13 @@ use serde::Serialize;
 use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
 
+use self::{ledwall_status_holder::LedwallStatusHolder, slice::SliceData};
+
 pub mod ledwall_status_holder;
 pub mod ledwallcontrol;
 pub mod slice;
+
+use ledwall_status_holder::SafeLedwallStatusHolder;
 
 #[derive(Serialize)]
 pub struct SpoutName {
@@ -36,15 +40,30 @@ pub fn fetchSpoutNames() -> Vec<SpoutName> {
 }
 
 #[tauri::command]
-pub async fn testRPCStatusSuccess() -> Result<(), ()> {
-    sleep(Duration::from_secs(3)).await;
+pub async fn startFrameSender(
+    slices: Vec<SliceData>,
+    state: tauri::State<'_, SafeLedwallStatusHolder>,
+) -> Result<(), ()> {
+    let mut holder;
 
-    return Err(());
+    match state.lock() {
+        Ok(state) => holder = state,
+        Err(_) => return Err(()),
+    }
+
+    return holder.run(slices);
 }
 
 #[tauri::command]
-pub async fn testRPCStatusErrore() -> Result<(), ()> {
-    sleep(Duration::from_secs(3)).await;
+pub async fn stopFrameSender(state: tauri::State<'_, SafeLedwallStatusHolder>) -> Result<(), ()> {
+    let mut holder;
 
-    return Err(());
+    println!("Stop call");
+
+    match state.lock() {
+        Ok(state) => holder = state,
+        Err(_) => return Err(()),
+    }
+
+    return holder.stop();
 }

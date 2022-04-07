@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::controler::ControlerMessage;
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct SliceData {
     spoutName: String,
     slabHeight: u32,
