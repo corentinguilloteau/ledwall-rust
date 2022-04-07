@@ -22,6 +22,9 @@ spout_rust = {path = "../../spout_rust"}
 cxx = "1.0.66" 
 base64 = "0.13.0"
 image = "0.24.1"
+async-std = "1.11.0"
+tokio = { version = "1.17.0", features = ["full"] }
+futures = "0.3.21"
 
 
 [features]

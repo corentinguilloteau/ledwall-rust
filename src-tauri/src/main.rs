@@ -4,6 +4,7 @@
 )]
 #![allow(non_snake_case)]
 mod api;
+mod controler;
 use cxx::let_cxx_string;
 use image::codecs::bmp::BmpEncoder;
 use spout_rust::ffi as spoutlib;
@@ -124,6 +125,8 @@ fn main() {
         .manage(safeImageHolder)
         .invoke_handler(tauri::generate_handler![get_image])
         .invoke_handler(tauri::generate_handler![api::fetchSpoutNames])
+        .invoke_handler(tauri::generate_handler![api::testRPCStatusErrore])
+        .invoke_handler(tauri::generate_handler![api::testRPCStatusSuccess])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

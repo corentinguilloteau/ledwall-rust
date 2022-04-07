@@ -1,5 +1,7 @@
 import { Button, Group, Select } from "@mantine/core";
+import { invoke } from "@tauri-apps/api";
 import { useState } from "react";
+import { HandStop } from "tabler-icons-react";
 import {
 	isTestType,
 	LedwallControlHolder,
@@ -7,6 +9,7 @@ import {
 	LedwallControlTests,
 	LedwallControlTestsEnum,
 } from "../../data/types/LedwallControlTypes";
+import useRPC from "../../hooks/useRPC";
 
 type OnOff = "on" | "off";
 
@@ -80,9 +83,23 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
+	let [startStatus, , , sendStartStopCommand] = useRPC(invoke, "testRPCStatusErrore");
+
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
-		on: props.onStartClick,
-		off: props.onStopClick,
+		on: () => {
+			sendStartStopCommand()
+				.then(() => {
+					props.onStartClick();
+				})
+				.catch((err) => console.log(err));
+		},
+		off: () => {
+			sendStartStopCommand()
+				.then(() => {
+					props.onStopClick();
+				})
+				.catch((err) => console.log(err));
+		},
 	};
 
 	return (
@@ -92,7 +109,9 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 					style={{ flex: "0 0 auto" }}
 					color={OnOffButtonColor[startStopButton]}
 					disabled={!startStopButtonEnabled}
-					onClick={OnOffButtonClick[startStopButton]}>
+					onClick={OnOffButtonClick[startStopButton]}
+					loading={startStatus === "loading"}
+					leftIcon={startStatus === "error" ? <HandStop /> : null}>
 					{OnOffButtonText[startStopButton]}
 				</Button>
 			</div>

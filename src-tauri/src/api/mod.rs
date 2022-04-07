@@ -1,6 +1,13 @@
+use std::time::Duration;
+
+use async_std::task::sleep;
 use serde::Serialize;
 use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
+
+pub mod ledwall_status_holder;
+pub mod ledwallcontrol;
+pub mod slice;
 
 #[derive(Serialize)]
 pub struct SpoutName {
@@ -26,4 +33,18 @@ pub fn fetchSpoutNames() -> Vec<SpoutName> {
     }
 
     return result;
+}
+
+#[tauri::command]
+pub async fn testRPCStatusSuccess() -> Result<(), ()> {
+    sleep(Duration::from_secs(3)).await;
+
+    return Err(());
+}
+
+#[tauri::command]
+pub async fn testRPCStatusErrore() -> Result<(), ()> {
+    sleep(Duration::from_secs(3)).await;
+
+    return Err(());
 }
