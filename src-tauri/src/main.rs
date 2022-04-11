@@ -128,7 +128,11 @@ fn main() {
         .manage(safeImageHolder)
         .manage(safeLedwallStatusHolder)
         .invoke_handler(tauri::generate_handler![get_image])
-        .invoke_handler(tauri::generate_handler![api::fetchSpoutNames, api::stopFrameSender, api::startFrameSender])
+        .invoke_handler(tauri::generate_handler![
+            api::fetchSpoutNames,
+            api::stopFrameSender,
+            api::startFrameSender
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

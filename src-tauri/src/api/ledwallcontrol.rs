@@ -12,11 +12,3 @@ pub enum LedwallControlStatusEnum {
 pub struct LedwallControl {
     pub status: LedwallControlStatusEnum,
 }
-
-impl LedwallControl {
-    pub fn new() -> Self {
-        return LedwallControl {
-            status: LedwallControlStatusEnum::Stopped,
-        };
-    }
-}

@@ -1,6 +1,11 @@
-use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
+use std::sync::{
+    mpsc::{channel, Sender},
+    Arc, Mutex, RwLock,
+};
 
-use crate::controler::{createControler, ControlerMessage};
+use tauri::Window;
+
+use crate::controler::{runControlerThread, ControlerMessage};
 
 use super::{
     ledwallcontrol::{LedwallControl, LedwallControlStatusEnum},
@@ -12,6 +17,7 @@ pub struct LedwallStatusHolder {
     slices: Vec<SliceData>,
     thread: Option<tokio::task::JoinHandle<()>>,
     messageSender: Option<Sender<ControlerMessage>>,
+    window: Option<Arc<Window>>,
 }
 
 pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;
@@ -25,13 +31,17 @@ impl LedwallStatusHolder {
             slices: Vec::new(),
             thread: None,
             messageSender: None,
+            window: None,
         }
     }
 
-    pub fn run(&mut self, slicesData: Vec<SliceData>) -> Result<(), ()> {
-        let statusResult = self.status.write();
+    pub fn run(&mut self, slicesData: Vec<SliceData>, window: Window) -> Result<(), ()> {
+        let statusHandle = self.status.clone();
+        let statusResult = statusHandle.write();
 
         let mut status;
+
+        self.window = Some(Arc::new(window));
 
         match statusResult {
             Err(_) => return Err(()),
@@ -41,9 +51,8 @@ impl LedwallStatusHolder {
         if status.status == LedwallControlStatusEnum::Stopped {
             let localSlices = slicesData.to_vec();
 
-            let (sender, threadHandle) = createControler(localSlices);
+            let sender = self.createControler(localSlices);
 
-            self.thread = Some(threadHandle);
             self.messageSender = Some(sender);
             self.slices = slicesData;
 
@@ -53,6 +62,25 @@ impl LedwallStatusHolder {
         } else {
             return Err(());
         }
+    }
+
+    fn createControler(&mut self, slices: Vec<SliceData>) -> Sender<ControlerMessage> {
+        let (sender, receiver) = channel();
+
+        let statusHandle = self.status.clone();
+        let windowHandle = self.window.clone();
+
+        tokio::spawn(async move {
+            runControlerThread(receiver, slices).await;
+            if let Ok(mut status) = statusHandle.write() {
+                status.status = LedwallControlStatusEnum::Stopped;
+                if let Some(window) = windowHandle {
+                    let _ = window.emit::<String>("backend-data-update", "status".into());
+                }
+            }
+        });
+
+        return sender;
     }
 
     pub fn stop(&mut self) -> Result<(), ()> {

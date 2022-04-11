@@ -1,6 +1,5 @@
 use std::{
-    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
-    thread::{self},
+    sync::mpsc::{Receiver, TryRecvError},
     time::{Duration, Instant},
 };
 
@@ -17,17 +16,7 @@ struct TaskHolder {
     taskChannel: tokio::sync::mpsc::Sender<ControlerMessage>,
 }
 
-pub fn createControler(
-    slices: Vec<SliceData>,
-) -> (Sender<ControlerMessage>, tokio::task::JoinHandle<()>) {
-    let (sender, receiver) = channel();
-
-    let thread = tokio::spawn(async move { runControlerThread(receiver, slices).await });
-
-    return (sender, thread);
-}
-
-async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<SliceData>) {
+pub async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<SliceData>) {
     let mut tasks = Vec::with_capacity(slices.len());
 
     let (tasksSender, mut tasksReceiver) = tokio::sync::mpsc::channel(slices.len());
@@ -45,8 +34,6 @@ async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Sl
                     let _ = localTaskSender.send(ControlerMessage::Terminate).await;
                 }
             }
-
-            return;
         });
 
         let taskHolder = TaskHolder { task, taskChannel };
@@ -110,7 +97,7 @@ async fn terminate(tasks: Vec<TaskHolder>) {
         match task.taskChannel.try_send(ControlerMessage::Terminate) {
             Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => (),
             _ => {
-                task.task.await;
+                let _ = task.task.await;
             }
         }
     }

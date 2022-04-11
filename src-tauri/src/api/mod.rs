@@ -1,11 +1,9 @@
-use std::time::Duration;
-
-use async_std::task::sleep;
 use serde::Serialize;
 use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
+use tauri::Window;
 
-use self::{ledwall_status_holder::LedwallStatusHolder, slice::SliceData};
+use self::slice::SliceData;
 
 pub mod ledwall_status_holder;
 pub mod ledwallcontrol;
@@ -41,6 +39,7 @@ pub fn fetchSpoutNames() -> Vec<SpoutName> {
 
 #[tauri::command]
 pub async fn startFrameSender(
+    window: Window,
     slices: Vec<SliceData>,
     state: tauri::State<'_, SafeLedwallStatusHolder>,
 ) -> Result<(), ()> {
@@ -51,7 +50,7 @@ pub async fn startFrameSender(
         Err(_) => return Err(()),
     }
 
-    return holder.run(slices);
+    return holder.run(slices, window);
 }
 
 #[tauri::command]
