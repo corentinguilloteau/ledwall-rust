@@ -35,6 +35,13 @@ impl LedwallStatusHolder {
         }
     }
 
+    pub fn getStatus(&self) -> Result<LedwallControl, ()> {
+        match self.status.read() {
+            Ok(res) => return Ok(*res),
+            Err(_) => return Err(()),
+        }
+    }
+
     pub fn run(&mut self, slicesData: Vec<SliceData>, window: Window) -> Result<(), ()> {
         let statusHandle = self.status.clone();
         let statusResult = statusHandle.write();
@@ -57,6 +64,10 @@ impl LedwallStatusHolder {
             self.slices = slicesData;
 
             status.status = LedwallControlStatusEnum::Displaying;
+
+            if let Some(window) = &self.window {
+                let _ = window.emit::<String>("backend-data-update", "status".into());
+            }
 
             return Ok(());
         } else {

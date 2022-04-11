@@ -2,22 +2,13 @@ import { Button, Group, Select } from "@mantine/core";
 import { invoke } from "@tauri-apps/api";
 import { useState } from "react";
 import { HandStop } from "tabler-icons-react";
-import {
-	isTestType,
-	LedwallControlHolder,
-	LedwallControlStatus,
-	LedwallControlTests,
-	LedwallControlTestsEnum,
-} from "../../data/types/LedwallControlTypes";
-import { defaultSlice } from "../../data/types/Slice";
+import { isTestType, LedwallControlHolder, LedwallControlTests } from "../../data/types/LedwallControlTypes";
 import useRPC from "../../hooks/useRPC";
 
 type OnOff = "on" | "off";
 
 interface ControlPageButtonsProps {
 	status: LedwallControlHolder;
-	onStartClick: () => void;
-	onStopClick: () => void;
 	onTestClick: (testType: LedwallControlTests) => void;
 }
 
@@ -27,12 +18,12 @@ function getState(holder: LedwallControlHolder): [OnOff, boolean, boolean] {
 	let testButtonEnabled = false;
 
 	switch (holder.status) {
-		case "display":
+		case "displaying":
 			startStopButton = "off";
 			startStopButtonEnabled = true;
 			testButtonEnabled = false;
 			break;
-		case "stop":
+		case "stopped":
 			startStopButton = "on";
 			startStopButtonEnabled = true;
 			testButtonEnabled = true;
@@ -105,18 +96,10 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
 		on: () => {
-			sendStartCommand()
-				.then(() => {
-					props.onStartClick();
-				})
-				.catch((err) => console.log(err));
+			sendStartCommand();
 		},
 		off: () => {
-			sendStopCommand()
-				.then(() => {
-					props.onStopClick();
-				})
-				.catch((err) => console.log(err));
+			sendStopCommand();
 		},
 	};
 
@@ -152,17 +135,7 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 	}
 	return (
 		<Group grow style={{ flex: 1, justifyContent: "space-evenly" }}>
-			<div style={{ flex: "1", display: "flex", justifyContent: "center" }}>
-				<Button
-					style={{ flex: "0 0 auto" }}
-					color={OnOffButtonColor[startStopButton]}
-					disabled={!startStopButtonEnabled}
-					onClick={OnOffButtonClick[startStopButton]}
-					loading={startStatus === "loading"}
-					leftIcon={startStatus === "error" ? <HandStop /> : null}>
-					{OnOffButtonText[startStopButton]}
-				</Button>
-			</div>
+			<div style={{ flex: "1", display: "flex", justifyContent: "center" }}>{startStopButtonComponent}</div>
 			<Group grow style={{ flex: 1, justifyContent: "space-evenly", flexDirection: "column" }}>
 				<Select
 					value={currentTest}

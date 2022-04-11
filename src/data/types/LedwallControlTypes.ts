@@ -1,9 +1,9 @@
 import isOfTypeFactory from "./utils";
 
 enum LedwallControlStatusEnum {
-	Displaying = "display",
+	Displaying = "displaying",
 	// Testing = "test",
-	Stopped = "stop",
+	Stopped = "stopped",
 }
 
 enum LedwallControlTestsEnum {
@@ -20,11 +20,11 @@ interface CommonLedwallControlHolder {
 }
 
 interface DisplayingLedwallControlHolder extends CommonLedwallControlHolder {
-	status: "display";
+	status: "displaying";
 }
 
 interface StoppedLedwallControlHolder extends CommonLedwallControlHolder {
-	status: "stop";
+	status: "stopped";
 }
 
 // interface TestingLedwallControlHolder extends CommonLedwallControlHolder {

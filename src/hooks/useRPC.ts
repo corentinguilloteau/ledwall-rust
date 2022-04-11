@@ -5,31 +5,29 @@ export type RPCStatus = "error" | "loading" | "none" | "success";
 type RPCFunction<T> = (...args: any[]) => Promise<T>;
 
 // [status, response, error, call]
-type useRPCResult<T> = [RPCStatus, T | undefined, any, () => Promise<[RPCStatus, T | undefined, any]>];
+type useRPCResult<T> = [RPCStatus, T | undefined, any, () => Promise<T | undefined>];
 
 export default function useRPC<T>(userCall: RPCFunction<T>, ...args: any[]): useRPCResult<T> {
 	const [callState, setCallState] = useState("none" as RPCStatus);
 	const [response, setResponse] = useState(undefined as T | undefined);
 	const [error, setError] = useState(undefined as any);
 
-	async function handledCall(): Promise<[RPCStatus, T | undefined, any]> {
+	async function handledCall(): Promise<T | undefined> {
 		setCallState("loading");
 
-		await userCall(...args)
-			.then((result) => {
-				setCallState("success");
-				setResponse(result);
-				setError(undefined);
-			})
-			.catch((reason) => {
-				setCallState("error");
-				setResponse(undefined);
-				setError(reason);
+		try {
+			let result = await userCall(...args);
+			setCallState("success");
+			setResponse(result);
+			setError(undefined);
+			return result;
+		} catch (e) {
+			setCallState("error");
+			setResponse(undefined);
+			setError(e);
 
-				throw reason;
-			});
-
-		return [callState, response, error];
+			throw e;
+		}
 	}
 
 	return [callState, response, error, handledCall];

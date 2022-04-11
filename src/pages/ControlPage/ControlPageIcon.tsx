@@ -17,7 +17,7 @@ function ControlPageIcon(props: ControlPageIconProps) {
 	};
 
 	switch (props.status) {
-		case "display":
+		case "displaying":
 			return (
 				<PlayerPlay
 					style={{
@@ -28,7 +28,7 @@ function ControlPageIcon(props: ControlPageIconProps) {
 					}}
 				/>
 			);
-		case "stop":
+		case "stopped":
 			return (
 				<PlayerStop
 					style={{

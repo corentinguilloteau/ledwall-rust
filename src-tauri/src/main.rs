@@ -131,7 +131,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             api::fetchSpoutNames,
             api::stopFrameSender,
-            api::startFrameSender
+            api::startFrameSender,
+            api::fetch_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
