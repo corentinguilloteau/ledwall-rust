@@ -1,6 +1,9 @@
-use std::sync::{
-    mpsc::{channel, Sender},
-    Arc, Mutex, RwLock,
+use std::{
+    sync::{
+        mpsc::{channel, Sender},
+        Arc, Mutex, RwLock,
+    },
+    thread,
 };
 
 use tauri::Window;
@@ -81,8 +84,9 @@ impl LedwallStatusHolder {
         let statusHandle = self.status.clone();
         let windowHandle = self.window.clone();
 
-        tokio::spawn(async move {
-            runControlerThread(receiver, slices).await;
+        thread::spawn(move || {
+            println!("Starting controler");
+            runControlerThread(receiver, slices);
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
                 if let Some(window) = windowHandle {

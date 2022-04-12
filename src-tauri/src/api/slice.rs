@@ -11,10 +11,18 @@ pub struct SliceData {
 
 impl SliceData {
     pub fn getSpoutName(&self) -> String {
-        return self.spoutName;
+        return self.spoutName.clone();
     }
 
     pub fn getSlab(&self) -> Vec<Vec<u32>> {
-        return self.slabs;
+        return self.slabs.clone();
+    }
+
+    pub fn getSlabWidth(&self) -> u32 {
+        return self.slabWidth;
+    }
+
+    pub fn getSlabHeight(&self) -> u32 {
+        return self.slabHeight;
     }
 }

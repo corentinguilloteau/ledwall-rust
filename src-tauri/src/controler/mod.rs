@@ -1,18 +1,17 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::mpsc::{Receiver, TryRecvError},
+    io::Write,
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    sync::{
+        mpsc::{channel, Receiver, Sender, TryRecvError},
+        Arc, Condvar, Mutex, RwLock,
+    },
+    thread::{self, sleep, JoinHandle},
     time::{Duration, Instant},
 };
 
 use crate::api::slice::SliceData;
 use cxx::let_cxx_string;
 use spout_rust::ffi::{self as spoutlib, SpoutDXAdapter};
-use tokio::{
-    self,
-    net::TcpStream,
-    sync::watch,
-    time::{sleep, timeout},
-};
 
 pub enum ControlerMessage {
     Terminate,
@@ -28,29 +27,30 @@ struct ImageHolder {
 }
 
 struct TaskHolder {
-    task: tokio::task::JoinHandle<()>,
-    taskChannel: tokio::sync::mpsc::Sender<ControlerMessage>,
+    task: JoinHandle<()>,
+    taskChannel: Sender<ControlerMessage>,
 }
 
-pub async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<SliceData>) {
+pub fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<SliceData>) {
     let mut tasks = Vec::with_capacity(slices.len());
 
-    let (tasksSender, mut tasksReceiver) = tokio::sync::mpsc::channel(slices.len());
+    let (tasksSender, tasksReceiver) = channel();
 
     for slice in slices {
-        let (taskChannel, taskChannelReceiver) = tokio::sync::mpsc::channel(10);
+        let (taskChannel, taskChannelReceiver) = channel();
 
         let localTaskSender = tasksSender.clone();
         let localSlice = slice.clone();
 
-        let task = tokio::spawn(async move {
-            match runSliceTask(taskChannelReceiver, localSlice).await {
+        println!("Creating slice thread");
+        let task = thread::spawn(
+            move || match runSliceTask(taskChannelReceiver, localSlice) {
                 Ok(_) => (),
                 Err(_) => {
-                    let _ = localTaskSender.send(ControlerMessage::Terminate).await;
+                    let _ = localTaskSender.send(ControlerMessage::Terminate);
                 }
-            }
-        });
+            },
+        );
 
         let taskHolder = TaskHolder { task, taskChannel };
 
@@ -68,12 +68,12 @@ pub async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Ve
 
         match message {
             Err(TryRecvError::Disconnected) => {
-                terminate(tasks).await;
+                terminate(tasks);
                 return;
             }
             Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
-                terminate(tasks).await;
+                terminate(tasks);
                 return;
             }
             _ => (),
@@ -82,52 +82,56 @@ pub async fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Ve
         let message = tasksReceiver.try_recv();
 
         match message {
-            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
-                terminate(tasks).await;
+            Err(TryRecvError::Disconnected) => {
+                terminate(tasks);
                 return;
             }
-            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => (),
+            Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
-                terminate(tasks).await;
+                terminate(tasks);
                 return;
             }
             _ => (),
         }
 
+        println!("Sending main tick");
+
         for i in 0..tasks.len() {
-            let _ = tasks[i].taskChannel.try_send(ControlerMessage::Tick);
+            let _ = tasks[i].taskChannel.send(ControlerMessage::Tick);
         }
 
         let runtime = start.elapsed();
 
         if let Some(remaining) = wait_time.checked_sub(runtime) {
-            sleep(remaining).await;
+            sleep(remaining);
         } else {
             eprintln!("Main clock drift");
         }
     }
 }
 
-async fn terminate(tasks: Vec<TaskHolder>) {
+fn terminate(tasks: Vec<TaskHolder>) {
     for task in tasks {
-        match task.taskChannel.try_send(ControlerMessage::Terminate) {
-            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => (),
+        match task.taskChannel.send(ControlerMessage::Terminate) {
+            Err(_) => (),
             _ => {
-                let _ = task.task.await;
+                let _ = task.task.join();
             }
         }
     }
 }
 
-struct SlabConnection {
+struct SlabData {
     id: u32,
-    client: Option<TcpStream>,
+    slabWidth: usize,
+    slabHeight: usize,
+    xOffset: usize,
+    yOffset: usize,
 }
 
-async fn runSliceTask(
-    mut recv: tokio::sync::mpsc::Receiver<ControlerMessage>,
-    slice: SliceData,
-) -> Result<(), ()> {
+fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), ()> {
+    println!("Slice thread started");
+
     let mut spout = spoutlib::new_spout_adapter();
 
     let_cxx_string!(spout_name = slice.getSpoutName());
@@ -140,49 +144,81 @@ async fn runSliceTask(
 
     SpoutDXAdapter::AdapterSetReceiverName(spout.as_mut().unwrap(), spout_name.as_mut());
 
-    let mut imageHolder = ImageHolder {
+    let secureImageHolder = Arc::new(RwLock::new(ImageHolder {
         image: Vec::new(),
         image_size: ImageSize {
             height: 0,
             width: 0,
         },
-    };
+    }));
 
     let mut slabConnections = Vec::new();
 
-    for slabLine in slice.getSlab() {
-        for slab in slabLine {
-            let slabConnection = SlabConnection {
-                id: slab,
-                client: None,
-            };
+    let slabs = slice.getSlab();
 
-            slabConnections.push(slabConnection);
+    for slabLine in 0..slabs.len() {
+        for slab in 0..slabs[slabLine].len() {
+            println!("Handling slab {}", slabs[slabLine][slab]);
+            if slabs[slabLine][slab] != 0 {
+                let slabConnection = SlabData {
+                    id: slabs[slabLine][slab],
+                    slabWidth: slice.getSlabWidth() as usize,
+                    slabHeight: slice.getSlabHeight() as usize,
+                    xOffset: slab,
+                    yOffset: slabLine,
+                };
+
+                slabConnections.push(slabConnection);
+            }
         }
     }
 
     let mut slabRunners = Vec::new();
 
-    let (watchSender, watchReceiver) = watch::channel(());
+    let frameCount: Arc<(Mutex<Option<u32>>, Condvar)> =
+        Arc::new((Mutex::new(None), Condvar::new()));
 
     for slab in slabConnections {
-        slabRunners.push(sendSlice(slab, watchReceiver.clone()))
+        let frameCountClone = frameCount.clone();
+        let secureImageHolderClone = secureImageHolder.clone();
+
+        let thread = thread::spawn(move || {
+            println!("Starting slab thread");
+            let _ = sendSlice(slab, frameCountClone, secureImageHolderClone);
+        });
+
+        slabRunners.push(thread);
     }
 
+    let (frameIdMutex, cvar) = &*frameCount;
+
     loop {
-        let message = recv.recv().await;
+        let message = recv.recv();
 
         match message {
-            Some(ControlerMessage::Terminate) => return Ok(()),
-            Some(ControlerMessage::Tick) => (),
-            None => return Ok(()),
+            Ok(ControlerMessage::Terminate) => return Ok(()),
+            Ok(ControlerMessage::Tick) => (),
+            Err(_) => return Ok(()),
         }
+
+        println!("Received main tick");
+
+        let imageHolderResult = secureImageHolder.write();
+        let mut imageHolder;
+
+        match imageHolderResult {
+            Err(_) => return Err(()),
+            Ok(h) => imageHolder = h,
+        }
+
+        let width = imageHolder.image_size.width;
+        let height = imageHolder.image_size.height;
 
         if SpoutDXAdapter::AdapterReceiveImage(
             spout.as_mut().unwrap(),
             &mut imageHolder.image[..],
-            imageHolder.image_size.width,
-            imageHolder.image_size.height,
+            width,
+            height,
             false,
             false,
         ) {
@@ -196,28 +232,49 @@ async fn runSliceTask(
                 imageHolder.image_size.height = imageHeight;
                 imageHolder.image_size.width = imageWidth;
             } else {
-                // Put data in shared object
+                drop(imageHolder);
 
-                watchSender.send(());
+                let frameIdResult = frameIdMutex.lock();
+
+                let mut frameId;
+
+                match frameIdResult {
+                    Err(_) => return Err(()),
+                    Ok(fi) => frameId = fi,
+                }
+
+                if let Some(fId) = *frameId {
+                    *frameId = Some((fId + 1) % 25);
+                } else {
+                    *frameId = Some(0);
+                }
+
+                println!("Sending slab tick");
+
+                cvar.notify_all();
             }
         }
     }
 }
 
-async fn getTcpConnection(slabConnection: &SlabConnection) -> Result<TcpStream, ()> {
+fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, ()> {
     loop {
         if let Some(endip) = u8::try_from(slabConnection.id).ok() {
             let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, endip)), 9999);
-            let connection = TcpStream::connect(socket);
+            let connectionResult = TcpStream::connect_timeout(&socket, Duration::from_secs(10));
 
-            let timeoutResult = timeout(Duration::from_secs(10), connection).await;
+            let connection;
+            match connectionResult {
+                Err(_) => {
+                    println!("Cannot connect to slab {}", slabConnection.id);
+                    continue;
+                }
+                Ok(c) => connection = c,
+            }
 
-            match timeoutResult {
-                Err(_) => println!("Cannot connect to slab {}", slabConnection.id),
-                Ok(connection) => match connection {
-                    Err(_) => println!("Cannot connect to slab {}", slabConnection.id),
-                    Ok(c) => return Ok(c),
-                },
+            match connection.set_write_timeout(Some(Duration::from_secs(5))) {
+                Err(_) => println!("Cannot set timeout for slab {}", slabConnection.id),
+                Ok(_) => return Ok(connection),
             }
         } else {
             return Err(());
@@ -225,37 +282,111 @@ async fn getTcpConnection(slabConnection: &SlabConnection) -> Result<TcpStream, 
     }
 }
 
-async fn sendSlice(
-    slabConnection: SlabConnection,
-    mut receiver: watch::Receiver<()>, /*, data*/
+fn sendSlice(
+    slabConnection: SlabData,
+    frameIdPair: Arc<(Mutex<Option<u32>>, Condvar)>,
+    data: Arc<RwLock<ImageHolder>>,
 ) -> Result<(), ()> {
+    let (frameIdMutex, cvar) = &*frameIdPair;
+
+    let mut previousFrameId = None;
+
     loop {
-        let tcpConnection = getTcpConnection(&slabConnection).await?;
+        println!("Trying to connect slab");
+        let mut tcpConnection = getTcpConnection(&slabConnection)?;
 
         loop {
-            let has_changed;
+            let frameIdResult = frameIdMutex.lock();
 
-            match receiver.has_changed() {
+            let mut frameId;
+
+            match frameIdResult {
                 Err(_) => return Err(()),
-                Ok(result) => has_changed = result,
+                Ok(fi) => frameId = fi,
             }
 
-            if has_changed {
-                receiver.changed().await;
-            } else {
-                match receiver.changed().await {
+            while *frameId == previousFrameId {
+                match cvar.wait(frameId) {
                     Err(_) => return Err(()),
-                    Ok(_) => (),
+                    Ok(fi) => frameId = fi,
+                }
+            }
+
+            previousFrameId = *frameId;
+
+            let realFrameId;
+
+            match *frameId {
+                None => continue,
+                Some(fId) => realFrameId = fId,
+            }
+
+            // Get relevant data
+            let imageResult = data.read();
+
+            let image;
+            match imageResult {
+                Err(_) => return Err(()),
+                Ok(im) => image = im,
+            }
+
+            // 3 byte per pixel + 1 byte for the frame identifier
+            let mut buffer = Vec::<u8>::with_capacity(
+                3 * slabConnection.slabWidth * slabConnection.slabHeight + 1,
+            );
+
+            buffer[0] = realFrameId as u8;
+
+            // Number of lines before the slab * the number of pixels in a line * the size of a pixel + the x shift pixel count of the beginnning of the slab
+            let mut lineOffset = slabConnection.slabHeight * slabConnection.yOffset;
+            let mut localFramePosition: usize = 1;
+            let mut localOffset: usize;
+
+            let imageLength = image.image.len();
+
+            for _ in 0..slabConnection.slabHeight {
+                for j in 0..slabConnection.slabWidth {
+                    if lineOffset % 2 == 0 {
+                        localOffset = (3 * j)
+                            + lineOffset
+                                * (image.image_size.width as usize)
+                                * slabConnection.slabWidth
+                                * 3
+                            + 3 * slabConnection.slabWidth * slabConnection.xOffset;
+
+                        if localOffset + 2 < imageLength {
+                            buffer[localFramePosition + 2] = image.image[localOffset];
+                            buffer[localFramePosition + 1] = image.image[localOffset + 1];
+                            buffer[localFramePosition] = image.image[localOffset + 2];
+                        }
+                    } else {
+                        localOffset = (lineOffset
+                            * (image.image_size.width as usize)
+                            * slabConnection.slabWidth
+                            * 3
+                            + 3 * slabConnection.slabWidth * (slabConnection.xOffset + 1)
+                            - 1)
+                            - (3 * j);
+
+                        if localOffset < imageLength {
+                            buffer[localFramePosition + 2] = image.image[localOffset - 2];
+                            buffer[localFramePosition + 1] = image.image[localOffset - 1];
+                            buffer[localFramePosition] = image.image[localOffset];
+                        }
+                    }
+
+                    localFramePosition += 3;
                 }
 
-                // Get relevant data
+                lineOffset += 1;
+            }
 
-                if let Err(_) = tcpConnection.writable().await {
-                    break;
-                }
+            if let Err(_) = tcpConnection.write_all(&buffer[..]) {
+                break;
+            }
 
-                // Send data
-                //tcpConnection.try_write()
+            if let Err(_) = tcpConnection.flush() {
+                break;
             }
         }
     }
