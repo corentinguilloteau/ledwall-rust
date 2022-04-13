@@ -1,6 +1,6 @@
 use std::{
     io::Write,
-    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket},
     sync::{
         mpsc::{channel, Receiver, Sender, TryRecvError},
         Arc, Condvar, Mutex, RwLock,
@@ -15,7 +15,7 @@ use spout_rust::ffi::{self as spoutlib, SpoutDXAdapter};
 
 pub enum ControlerMessage {
     Terminate,
-    Tick,
+    Tick(u8),
 }
 struct ImageSize {
     height: u32,
@@ -31,7 +31,11 @@ struct TaskHolder {
     taskChannel: Sender<ControlerMessage>,
 }
 
-pub fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<SliceData>) {
+pub fn runControlerThread(
+    receiver: Receiver<ControlerMessage>,
+    slices: Vec<SliceData>,
+    commandSocket: UdpSocket,
+) {
     let mut tasks = Vec::with_capacity(slices.len());
 
     let (tasksSender, tasksReceiver) = channel();
@@ -58,8 +62,10 @@ pub fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Slic
     }
 
     // 30 fps
-    // let wait_time = Duration::from_millis(33);
-    let wait_time = Duration::from_millis(1000);
+    let wait_time = Duration::from_millis(33);
+    // let wait_time = Duration::from_millis(1000);
+
+    let mut frameId = None;
 
     loop {
         let start = Instant::now();
@@ -94,10 +100,16 @@ pub fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Slic
             _ => (),
         }
 
-        println!("Sending main tick");
+        if let Some(fId) = frameId {
+            frameId = Some((fId + 1) % 25);
+        } else {
+            frameId = Some(0);
+        }
 
-        for i in 0..tasks.len() {
-            let _ = tasks[i].taskChannel.send(ControlerMessage::Tick);
+        if let Some(fId) = frameId {
+            for i in 0..tasks.len() {
+                let _ = tasks[i].taskChannel.send(ControlerMessage::Tick(fId));
+            }
         }
 
         let runtime = start.elapsed();
@@ -106,6 +118,16 @@ pub fn runControlerThread(receiver: Receiver<ControlerMessage>, slices: Vec<Slic
             sleep(remaining);
         } else {
             eprintln!("Main clock drift");
+        }
+
+        if let Some(fId) = frameId {
+            if let Err(e) = commandSocket.send(&[fId]) {
+                println!("{}", e);
+            }
+
+            frameId = Some((fId + 1) % 25);
+        } else {
+            frameId = Some(0);
         }
     }
 }
@@ -130,11 +152,11 @@ struct SlabData {
 }
 
 fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), ()> {
-    println!("Slice thread started");
-
     let mut spout = spoutlib::new_spout_adapter();
 
-    let_cxx_string!(spout_name = slice.getSpoutName());
+    println!("{}", slice.getSpoutName());
+
+    let_cxx_string!(spout_name = "Arena - test2");
 
     if !SpoutDXAdapter::AdapterOpenDirectX11(spout.as_mut().unwrap()) {
         println!("Unable to open DX11, aborting !");
@@ -158,7 +180,6 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
 
     for slabLine in 0..slabs.len() {
         for slab in 0..slabs[slabLine].len() {
-            println!("Handling slab {}", slabs[slabLine][slab]);
             if slabs[slabLine][slab] != 0 {
                 let slabConnection = SlabData {
                     id: slabs[slabLine][slab],
@@ -175,7 +196,7 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
 
     let mut slabRunners = Vec::new();
 
-    let frameCount: Arc<(Mutex<Option<u32>>, Condvar)> =
+    let frameCount: Arc<(Mutex<Option<u8>>, Condvar)> =
         Arc::new((Mutex::new(None), Condvar::new()));
 
     for slab in slabConnections {
@@ -183,7 +204,6 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
         let secureImageHolderClone = secureImageHolder.clone();
 
         let thread = thread::spawn(move || {
-            println!("Starting slab thread");
             let _ = sendSlice(slab, frameCountClone, secureImageHolderClone);
         });
 
@@ -192,16 +212,18 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
 
     let (frameIdMutex, cvar) = &*frameCount;
 
+    let mut localFrameId;
+
     loop {
         let message = recv.recv();
 
+        let start = Instant::now();
+
         match message {
             Ok(ControlerMessage::Terminate) => return Ok(()),
-            Ok(ControlerMessage::Tick) => (),
+            Ok(ControlerMessage::Tick(fId)) => localFrameId = fId,
             Err(_) => return Ok(()),
         }
-
-        println!("Received main tick");
 
         let imageHolderResult = secureImageHolder.write();
         let mut imageHolder;
@@ -243,17 +265,15 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
                     Ok(fi) => frameId = fi,
                 }
 
-                if let Some(fId) = *frameId {
-                    *frameId = Some((fId + 1) % 25);
-                } else {
-                    *frameId = Some(0);
-                }
-
-                println!("Sending slab tick");
+                *frameId = Some(localFrameId);
 
                 cvar.notify_all();
             }
         }
+
+        let runtime = start.elapsed();
+
+        println!("Spent {:?} ms on slice task", runtime);
     }
 }
 
@@ -284,7 +304,7 @@ fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, ()> {
 
 fn sendSlice(
     slabConnection: SlabData,
-    frameIdPair: Arc<(Mutex<Option<u32>>, Condvar)>,
+    frameIdPair: Arc<(Mutex<Option<u8>>, Condvar)>,
     data: Arc<RwLock<ImageHolder>>,
 ) -> Result<(), ()> {
     let (frameIdMutex, cvar) = &*frameIdPair;
@@ -292,7 +312,6 @@ fn sendSlice(
     let mut previousFrameId = None;
 
     loop {
-        println!("Trying to connect slab");
         let mut tcpConnection = getTcpConnection(&slabConnection)?;
 
         loop {
@@ -311,6 +330,8 @@ fn sendSlice(
                     Ok(fi) => frameId = fi,
                 }
             }
+
+            let start = Instant::now();
 
             previousFrameId = *frameId;
 
@@ -335,6 +356,11 @@ fn sendSlice(
                 3 * slabConnection.slabWidth * slabConnection.slabHeight + 1,
             );
 
+            buffer.resize(
+                3 * slabConnection.slabWidth * slabConnection.slabHeight + 1,
+                0,
+            );
+
             buffer[0] = realFrameId as u8;
 
             // Number of lines before the slab * the number of pixels in a line * the size of a pixel + the x shift pixel count of the beginnning of the slab
@@ -348,10 +374,7 @@ fn sendSlice(
                 for j in 0..slabConnection.slabWidth {
                     if lineOffset % 2 == 0 {
                         localOffset = (3 * j)
-                            + lineOffset
-                                * (image.image_size.width as usize)
-                                * slabConnection.slabWidth
-                                * 3
+                            + lineOffset * (image.image_size.width as usize) * 3
                             + 3 * slabConnection.slabWidth * slabConnection.xOffset;
 
                         if localOffset + 2 < imageLength {
@@ -360,14 +383,10 @@ fn sendSlice(
                             buffer[localFramePosition] = image.image[localOffset + 2];
                         }
                     } else {
-                        localOffset = (lineOffset
-                            * (image.image_size.width as usize)
-                            * slabConnection.slabWidth
-                            * 3
+                        localOffset = (lineOffset * (image.image_size.width as usize) * 3
                             + 3 * slabConnection.slabWidth * (slabConnection.xOffset + 1)
                             - 1)
                             - (3 * j);
-
                         if localOffset < imageLength {
                             buffer[localFramePosition + 2] = image.image[localOffset - 2];
                             buffer[localFramePosition + 1] = image.image[localOffset - 1];
@@ -388,6 +407,10 @@ fn sendSlice(
             if let Err(_) = tcpConnection.flush() {
                 break;
             }
+
+            let runtime = start.elapsed();
+
+            println!("Spent {:?} ms on slab task", runtime);
         }
     }
 }

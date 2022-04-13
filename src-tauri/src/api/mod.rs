@@ -3,7 +3,7 @@ use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
 use tauri::Window;
 
-use self::{ledwallcontrol::LedwallControl, slice::SliceData};
+use self::{ledwall_status_holder::LedwallError, ledwallcontrol::LedwallControl, slice::SliceData};
 
 pub mod ledwall_status_holder;
 pub mod ledwallcontrol;
@@ -42,12 +42,12 @@ pub async fn startFrameSender(
     window: Window,
     slices: Vec<SliceData>,
     state: tauri::State<'_, SafeLedwallStatusHolder>,
-) -> Result<(), ()> {
+) -> Result<(), LedwallError> {
     let mut holder;
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(()),
+        Err(_) => return Err(LedwallError::LedwallIOCustomError),
     }
 
     return holder.run(slices, window);

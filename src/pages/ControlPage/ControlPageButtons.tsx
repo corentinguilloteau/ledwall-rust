@@ -85,7 +85,7 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 				slabWidth: 18,
 				color: "#FFFFFF",
 				slabs: [
-					[0, 0, 0],
+					[2, 0, 0],
 					[0, 0, 0],
 				],
 			},

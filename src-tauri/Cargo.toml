@@ -25,6 +25,7 @@ image = "0.24.1"
 async-std = "1.11.0"
 tokio = { version = "1.17.0", features = ["full"] }
 futures = "0.3.21"
+derive_more = "0.99.17"
 
 
 [features]

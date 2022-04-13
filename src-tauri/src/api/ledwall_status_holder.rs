@@ -1,11 +1,14 @@
 use std::{
+    net::UdpSocket,
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex, RwLock,
     },
-    thread,
+    thread::{self, JoinHandle},
 };
 
+use derive_more::From;
+use serde::Serialize;
 use tauri::Window;
 
 use crate::controler::{runControlerThread, ControlerMessage};
@@ -18,9 +21,26 @@ use super::{
 pub struct LedwallStatusHolder {
     status: Arc<RwLock<LedwallControl>>,
     slices: Vec<SliceData>,
-    thread: Option<tokio::task::JoinHandle<()>>,
+    thread: Option<JoinHandle<()>>,
     messageSender: Option<Sender<ControlerMessage>>,
     window: Option<Arc<Window>>,
+    commandSocket: Option<UdpSocket>,
+}
+
+#[derive(From, Serialize)]
+pub enum LedwallError {
+    #[serde(skip_serializing)]
+    LedwallIOError(std::io::Error),
+    #[from(ignore)]
+    LedwallIOCustomError,
+}
+
+pub enum LedwallCommand {
+    Live,
+    Shutdown,
+    Restart,
+    ShowNumber,
+    ShowVersion,
 }
 
 pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;
@@ -35,6 +55,7 @@ impl LedwallStatusHolder {
             thread: None,
             messageSender: None,
             window: None,
+            commandSocket: None,
         }
     }
 
@@ -45,7 +66,7 @@ impl LedwallStatusHolder {
         }
     }
 
-    pub fn run(&mut self, slicesData: Vec<SliceData>, window: Window) -> Result<(), ()> {
+    pub fn run(&mut self, slicesData: Vec<SliceData>, window: Window) -> Result<(), LedwallError> {
         let statusHandle = self.status.clone();
         let statusResult = statusHandle.write();
 
@@ -54,14 +75,20 @@ impl LedwallStatusHolder {
         self.window = Some(Arc::new(window));
 
         match statusResult {
-            Err(_) => return Err(()),
+            Err(_) => return Err(LedwallError::LedwallIOCustomError),
             Ok(s) => status = s,
         }
+
+        let socket = UdpSocket::bind("127.0.0.1:8888")?;
+        socket.set_broadcast(true)?;
+        socket.connect("127.0.0.255:8888")?;
+
+        self.commandSocket = Some(socket);
 
         if status.status == LedwallControlStatusEnum::Stopped {
             let localSlices = slicesData.to_vec();
 
-            let sender = self.createControler(localSlices);
+            let sender = self.createControler(localSlices)?;
 
             self.messageSender = Some(sender);
             self.slices = slicesData;
@@ -74,28 +101,59 @@ impl LedwallStatusHolder {
 
             return Ok(());
         } else {
-            return Err(());
+            return Err(LedwallError::LedwallIOCustomError);
         }
     }
 
-    fn createControler(&mut self, slices: Vec<SliceData>) -> Sender<ControlerMessage> {
+    fn createControler(
+        &mut self,
+        slices: Vec<SliceData>,
+    ) -> Result<Sender<ControlerMessage>, LedwallError> {
         let (sender, receiver) = channel();
 
         let statusHandle = self.status.clone();
         let windowHandle = self.window.clone();
 
-        thread::spawn(move || {
+        let commandSocket = self
+            .commandSocket
+            .as_ref()
+            .ok_or(LedwallError::LedwallIOCustomError)?
+            .try_clone()?;
+
+        self.thread = Some(thread::spawn(move || {
             println!("Starting controler");
-            runControlerThread(receiver, slices);
+            runControlerThread(receiver, slices, commandSocket.try_clone().unwrap());
+
+            println!("Sending live command");
+
+            LedwallStatusHolder::sendCommand(LedwallCommand::Live, commandSocket);
+
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
                 if let Some(window) = windowHandle {
                     let _ = window.emit::<String>("backend-data-update", "status".into());
                 }
             }
-        });
+        }));
 
-        return sender;
+        return Ok(sender);
+    }
+
+    fn sendCommand(command: LedwallCommand, socket: UdpSocket) -> Result<(), LedwallError> {
+        let commandChar: char;
+
+        match command {
+            LedwallCommand::Live => commandChar = 'l',
+            LedwallCommand::Shutdown => commandChar = 's',
+            LedwallCommand::Restart => commandChar = 'r',
+            LedwallCommand::ShowNumber => commandChar = 'n',
+            LedwallCommand::ShowVersion => commandChar = 'v',
+        }
+
+        socket.send(&[commandChar as u8])?;
+        socket.send(&[commandChar as u8])?;
+
+        return Ok(());
     }
 
     pub fn stop(&mut self) -> Result<(), ()> {
