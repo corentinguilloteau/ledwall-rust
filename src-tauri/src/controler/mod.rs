@@ -446,21 +446,21 @@ fn populateFrameBuffer(
                 // This is an even row, thus we go left to right
                 // Here, we look for the index of the pixel we want in the current line
                 // It is: (the number of pixels before this slab in this row + the index of the pixel in this slab) * |RGB|
-                framePixelIndexInLine = (lineOffset * frameWidth + slabWidth * slabXOffset + j) * 3;
+                framePixelIndexInLine = (slabWidth * slabXOffset + j) * 3;
             } else {
                 // This is an odd row, thus we go right to left
                 // Here, we look for the index of the pixel we want in the current line
-                // It is: (the number of pixels before the last pixel of this slab in this row + the index of the pixel in this slab) * |RGB| - |RGB| + 1
-                framePixelIndexInLine = (slabWidth * (slabXOffset + 1) - 1 - j) * 3 - 2;
+                // It is: (the number of pixels before the last pixel of this slab in this row + the index of the pixel in this slab) * |RGB|
+                framePixelIndexInLine = (slabWidth * (slabXOffset + 1) - 1 - j) * 3;
             }
 
             // We then get the actual pixel in the whole frame
-            let framePixelIndex = lineOffset * frameWidth + framePixelIndexInLine;
+            let framePixelIndex = (lineOffset * frameWidth) * 3 + framePixelIndexInLine;
 
             // We then copy the pixel to the buffer
             // NOTE: the pixels in the buffer are in RGB format but in BGR format in the frame
             // We also skip the copy if the pixel is out of the frame line
-            if framePixelIndex + 2 < frameLength && framePixelIndexInLine < frameWidth {
+            if framePixelIndex + 2 < frameLength && framePixelIndexInLine + 2 < frameWidth * 3 {
                 buffer[localFramePosition + 2] = frame.image[framePixelIndex];
                 buffer[localFramePosition + 1] = frame.image[framePixelIndex + 1];
                 buffer[localFramePosition] = frame.image[framePixelIndex + 2];
