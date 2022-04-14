@@ -98,48 +98,50 @@ impl FrameIdentifier {
     }
 }
 
-pub fn runControlerThread(
+pub fn ledwallRunner(
     receiver: Receiver<ControlerMessage>,
     slices: Vec<SliceData>,
     commandSocket: UdpSocket,
 ) {
     let mut tasks = Vec::with_capacity(slices.len());
 
-    let (tasksSender, tasksReceiver) = channel();
+    // This channel is used to by tasks to notifiy this thread that they finished, either correctly or with an error
+    let (taskToLocalSender, taskToLocalReceiver) = channel();
 
+    // We create slice runners
     for slice in slices {
-        let (taskChannel, taskChannelReceiver) = channel();
+        // This channel is used by this thread to ask the runners to stop
+        let (localToTaskSender, localToTaskReceiver) = channel();
 
-        let localTaskSender = tasksSender.clone();
+        let taskToLocalSenderClone = taskToLocalSender.clone();
         let localSlice = slice.clone();
+        let task = thread::spawn(move || match sliceRunner(localToTaskReceiver, localSlice) {
+            Ok(_) => (),
+            Err(_) => {
+                let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
+            }
+        });
 
-        println!("Creating slice thread");
-        let task = thread::spawn(
-            move || match runSliceTask(taskChannelReceiver, localSlice) {
-                Ok(_) => (),
-                Err(_) => {
-                    let _ = localTaskSender.send(ControlerMessage::Terminate);
-                }
-            },
-        );
-
-        let taskHolder = TaskHolder { task, taskChannel };
+        let taskHolder = TaskHolder {
+            task,
+            taskChannel: localToTaskSender,
+        };
 
         tasks.push(taskHolder);
     }
 
-    // 30 fps
+    // 30 fps, this is the interval beteen each frame
     let wait_time = Duration::from_millis(33);
-    // let wait_time = Duration::from_millis(1000);
-
+    // This is the frame identifier
     let mut frameId = FrameIdentifier::new();
+    let mut start = Instant::now();
 
+    // This loop checks that no thread is asking for termination
+    // Then it increments the frame identifer and notify all slice runners they should process a new frame
+    // Then it waits until the end of the period and then send a upd command to make slabs display the next frame
     loop {
-        let start = Instant::now();
-
-        let message = receiver.try_recv();
-
-        match message {
+        // Here we look at a potential incoming message from the parent thread
+        match receiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
                 terminate(tasks);
                 return;
@@ -152,9 +154,8 @@ pub fn runControlerThread(
             _ => (),
         }
 
-        let message = tasksReceiver.try_recv();
-
-        match message {
+        // We do the same for messages comming from child threads
+        match taskToLocalReceiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
                 terminate(tasks);
                 return;
@@ -167,28 +168,33 @@ pub fn runControlerThread(
             _ => (),
         }
 
+        // We go to the next frame
         frameId.next();
 
+        // We then notify all slice runners that a new frame should be processed
         if let Some(fId) = frameId.getRunnerFrameIdentifier() {
             for i in 0..tasks.len() {
                 let _ = tasks[i].taskChannel.send(ControlerMessage::Tick(fId));
             }
         }
 
+        // Then we can wait for the end of the period
         let runtime = start.elapsed();
-
         if let Some(remaining) = wait_time.checked_sub(runtime) {
             sleep(remaining);
         } else {
             eprintln!("Main clock drift");
         }
 
+        // We then send a the new frame command
+        // It is delayed by 2 frame to accomodate jitter
         if let Some(fId) = frameId.getCommandFrameIdentifier() {
             if let Err(e) = commandSocket.send(&[fId]) {
                 println!("{}", e);
             }
-        } else {
         }
+
+        start = Instant::now();
     }
 }
 
@@ -211,21 +217,23 @@ struct SlabData {
     yOffset: usize,
 }
 
-fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), ()> {
+fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), LedwallError> {
+    // Create the adapter to get the frames
     let mut spout = spoutlib::new_spout_adapter();
 
-    println!("{}", slice.getSpoutName());
-
+    // TODO: Set the right name here
     let_cxx_string!(spout_name = "Arena - test2");
 
-    if !SpoutDXAdapter::AdapterOpenDirectX11(spout.as_mut().unwrap()) {
+    // We create the adapter
+    if !SpoutDXAdapter::AdapterOpenDirectX11(
+        spout.as_mut().ok_or(LedwallError::LedwallCustomError)?,
+    ) {
         println!("Unable to open DX11, aborting !");
-
-        return Err(());
+        return Err(LedwallError::LedwallCustomError);
     }
-
     SpoutDXAdapter::AdapterSetReceiverName(spout.as_mut().unwrap(), spout_name.as_mut());
 
+    // We initialize a new empty image holder
     let secureImageHolder = Arc::new(RwLock::new(ImageHolder {
         image: Vec::new(),
         image_size: ImageSize {
@@ -234,68 +242,41 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
         },
     }));
 
-    let mut slabConnections = Vec::new();
-
-    let slabs = slice.getSlab();
-
-    for slabLine in 0..slabs.len() {
-        for slab in 0..slabs[slabLine].len() {
-            if slabs[slabLine][slab] != 0 {
-                let slabConnection = SlabData {
-                    id: slabs[slabLine][slab],
-                    slabWidth: slice.getSlabWidth() as usize,
-                    slabHeight: slice.getSlabHeight() as usize,
-                    xOffset: slab,
-                    yOffset: slabLine,
-                };
-
-                slabConnections.push(slabConnection);
-            }
-        }
-    }
-
-    let mut slabRunners = Vec::new();
-
-    let frameCount: Arc<(Mutex<Option<u8>>, Condvar)> =
+    // This is used to transfer the actual frame identifier to the slab runners ans to synchronize them
+    let frameIdentifier: Arc<(Mutex<Option<u8>>, Condvar)> =
         Arc::new((Mutex::new(None), Condvar::new()));
 
-    for slab in slabConnections {
-        let frameCountClone = frameCount.clone();
-        let secureImageHolderClone = secureImageHolder.clone();
+    let mut slabRunners = Vec::new();
+    initSlice(
+        &mut slabRunners,
+        &slice,
+        frameIdentifier.clone(),
+        secureImageHolder.clone(),
+    );
 
-        let thread = thread::spawn(move || {
-            let _ = slabRunner(slab, frameCountClone, secureImageHolderClone);
-        });
-
-        slabRunners.push(thread);
-    }
-
-    let (frameIdMutex, cvar) = &*frameCount;
-
-    let mut localFrameId;
+    let (frameIdentifierMutex, frameIdentifierCVar) = &*frameIdentifier;
+    let mut localFrameIdentifier;
 
     loop {
+        // We wait for the synchronization message from the parent thread
         let message = recv.recv();
 
+        // PROFILING: This is for profiling and should be included only in debug build
+        #[cfg(debug_assertions)]
         let start = Instant::now();
 
+        // We look for the message, if it tells to terminate, then we kill all child threads and terminate this one
         match message {
             Ok(ControlerMessage::Terminate) => return Ok(()),
-            Ok(ControlerMessage::Tick(fId)) => localFrameId = fId,
-            Err(_) => return Ok(()),
+            Ok(ControlerMessage::Tick(fId)) => localFrameIdentifier = fId,
+            Err(_) => return Err(LedwallError::LedwallCustomError),
         }
 
-        let imageHolderResult = secureImageHolder.write();
-        let mut imageHolder;
-
-        match imageHolderResult {
-            Err(_) => return Err(()),
-            Ok(h) => imageHolder = h,
-        }
-
+        let mut imageHolder = secureImageHolder.write().toLedwallResult()?;
         let width = imageHolder.image_size.width;
         let height = imageHolder.image_size.height;
 
+        // We try to receive an image from the Spout adapter
         if SpoutDXAdapter::AdapterReceiveImage(
             spout.as_mut().unwrap(),
             &mut imageHolder.image[..],
@@ -305,6 +286,8 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
             false,
         ) {
             if SpoutDXAdapter::AdapterIsUpdated(spout.as_mut().unwrap()) {
+                // If the adapter has been updated sinc the last time we fetched the frame, we reset the buffer and
+                // update the data structure
                 let imageHeight = SpoutDXAdapter::AdapterGetSenderHeight(spout.as_mut().unwrap());
                 let imageWidth = SpoutDXAdapter::AdapterGetSenderWidth(spout.as_mut().unwrap());
 
@@ -314,26 +297,60 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
                 imageHolder.image_size.height = imageHeight;
                 imageHolder.image_size.width = imageWidth;
             } else {
+                // Else, we can immedialty release the image holder to make it available to child threads
                 drop(imageHolder);
 
-                let frameIdResult = frameIdMutex.lock();
+                // We update the frame identifier
+                let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
+                *frameIdentifier = Some(localFrameIdentifier);
 
-                let mut frameId;
-
-                match frameIdResult {
-                    Err(_) => return Err(()),
-                    Ok(fi) => frameId = fi,
-                }
-
-                *frameId = Some(localFrameId);
-
-                cvar.notify_all();
+                // Notify slab runners a new frame is available and should be processed
+                frameIdentifierCVar.notify_all();
             }
         }
 
-        let runtime = start.elapsed();
+        // PROFILING: This is for profiling and should be included only in debug build
+        if cfg!(debug_assertions) {
+            let runtime = start.elapsed();
+            println!("Spent {:?} ms on slice task", runtime);
+        }
+    }
+}
 
-        println!("Spent {:?} ms on slice task", runtime);
+fn initSlice(
+    runners: &mut Vec<JoinHandle<()>>,
+    slice: &SliceData,
+    frameCountCondVar: Arc<(Mutex<Option<u8>>, Condvar)>,
+    secureImageHolder: Arc<RwLock<ImageHolder>>,
+) {
+    let slabs = slice.getSlab();
+
+    // We gather all needed informations for the slabs in the slice
+    for slabLine in 0..slabs.len() {
+        for slab in 0..slabs[slabLine].len() {
+            if slabs[slabLine][slab] != 0 {
+                let slabInformation = SlabData {
+                    id: slabs[slabLine][slab],
+                    slabWidth: slice.getSlabWidth() as usize,
+                    slabHeight: slice.getSlabHeight() as usize,
+                    xOffset: slab,
+                    yOffset: slabLine,
+                };
+
+                let frameCountCondVarClone = frameCountCondVar.clone();
+                let secureImageHolderClone = secureImageHolder.clone();
+                // For each slab, we create the slab runner thread
+                let thread = thread::spawn(move || {
+                    let _ = slabRunner(
+                        slabInformation,
+                        frameCountCondVarClone,
+                        secureImageHolderClone,
+                    );
+                });
+
+                runners.push(thread);
+            }
+        }
     }
 }
 

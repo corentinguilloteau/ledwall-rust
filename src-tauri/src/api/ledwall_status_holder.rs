@@ -11,7 +11,7 @@ use derive_more::From;
 use serde::Serialize;
 use tauri::Window;
 
-use crate::controler::{runControlerThread, ControlerMessage};
+use crate::controler::{ledwallRunner, ControlerMessage};
 
 use super::{
     ledwallcontrol::{LedwallControl, LedwallControlStatusEnum},
@@ -124,7 +124,7 @@ impl LedwallStatusHolder {
 
         self.thread = Some(thread::spawn(move || {
             println!("Starting controler");
-            runControlerThread(receiver, slices, commandSocket.try_clone().unwrap());
+            ledwallRunner(receiver, slices, commandSocket.try_clone().unwrap());
 
             println!("Sending live command");
 
