@@ -63,6 +63,41 @@ impl<R, E> ToLedwallResult<R> for Result<R, E> {
     }
 }
 
+struct FrameIdentifier {
+    frameIdentifier: Option<u8>,
+    fIdShift1: Option<u8>,
+    fIdShift2: Option<u8>,
+}
+
+impl FrameIdentifier {
+    pub fn new() -> Self {
+        return Self {
+            frameIdentifier: None,
+            fIdShift1: None,
+            fIdShift2: None,
+        };
+    }
+
+    pub fn getRunnerFrameIdentifier(&self) -> Option<u8> {
+        return self.frameIdentifier;
+    }
+
+    pub fn getCommandFrameIdentifier(&self) -> Option<u8> {
+        return self.fIdShift2;
+    }
+
+    pub fn next(&mut self) {
+        self.fIdShift2 = self.fIdShift1;
+        self.fIdShift1 = self.frameIdentifier;
+
+        if let Some(fId) = self.frameIdentifier {
+            self.frameIdentifier = Some((fId + 1) % 26);
+        } else {
+            self.frameIdentifier = Some(0);
+        }
+    }
+}
+
 pub fn runControlerThread(
     receiver: Receiver<ControlerMessage>,
     slices: Vec<SliceData>,
@@ -97,7 +132,7 @@ pub fn runControlerThread(
     let wait_time = Duration::from_millis(33);
     // let wait_time = Duration::from_millis(1000);
 
-    let mut frameId = None;
+    let mut frameId = FrameIdentifier::new();
 
     loop {
         let start = Instant::now();
@@ -132,13 +167,9 @@ pub fn runControlerThread(
             _ => (),
         }
 
-        if let Some(fId) = frameId {
-            frameId = Some((fId + 1) % 26);
-        } else {
-            frameId = Some(0);
-        }
+        frameId.next();
 
-        if let Some(fId) = frameId {
+        if let Some(fId) = frameId.getRunnerFrameIdentifier() {
             for i in 0..tasks.len() {
                 let _ = tasks[i].taskChannel.send(ControlerMessage::Tick(fId));
             }
@@ -152,14 +183,11 @@ pub fn runControlerThread(
             eprintln!("Main clock drift");
         }
 
-        if let Some(fId) = frameId {
+        if let Some(fId) = frameId.getCommandFrameIdentifier() {
             if let Err(e) = commandSocket.send(&[fId]) {
                 println!("{}", e);
             }
-
-            frameId = Some((fId + 1) % 26);
         } else {
-            frameId = Some(0);
         }
     }
 }
