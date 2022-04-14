@@ -1,7 +1,9 @@
 import { Button, Group, Select } from "@mantine/core";
 import { invoke } from "@tauri-apps/api";
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { HandStop } from "tabler-icons-react";
+import { RootState } from "../../data/store/store";
 import { isTestType, LedwallControlHolder, LedwallControlTests } from "../../data/types/LedwallControlTypes";
 import useRPC from "../../hooks/useRPC";
 
@@ -75,28 +77,15 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
-	let [startStatus, , , sendStartCommand] = useRPC(invoke, "startFrameSender", {
-		slices: [
-			{
-				spoutName: "test",
-				width: 3,
-				height: 2,
-				slabHeight: 18,
-				slabWidth: 18,
-				color: "#FFFFFF",
-				slabs: [
-					[2, 0, 0],
-					[0, 0, 0],
-				],
-			},
-		],
-	});
+	const slices = useSelector((state: RootState) => state.slices.slices);
+
+	let [startStatus, , , sendStartCommand] = useRPC(invoke, "startFrameSender");
 
 	let [stopStatus, , , sendStopCommand] = useRPC(invoke, "stopFrameSender");
 
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
 		on: () => {
-			sendStartCommand();
+			sendStartCommand({ slices: slices });
 		},
 		off: () => {
 			sendStopCommand();

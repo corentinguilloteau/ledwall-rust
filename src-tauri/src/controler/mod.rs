@@ -130,8 +130,8 @@ pub fn ledwallRunner(
         tasks.push(taskHolder);
     }
 
-    // 30 fps, this is the interval beteen each frame
-    let wait_time = Duration::from_millis(33);
+    // 60 fps, this is the interval beteen each frame
+    let wait_time = Duration::from_millis(17);
     // This is the frame identifier
     let mut frameId = FrameIdentifier::new();
     let mut start = Instant::now();
@@ -221,8 +221,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
     // Create the adapter to get the frames
     let mut spout = spoutlib::new_spout_adapter();
 
-    // TODO: Set the right name here
-    let_cxx_string!(spout_name = "Arena - test2");
+    let_cxx_string!(spout_name = slice.getSpoutName());
 
     // We create the adapter
     if !SpoutDXAdapter::AdapterOpenDirectX11(
@@ -262,7 +261,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         let message = recv.recv();
 
         // PROFILING: This is for profiling and should be included only in debug build
-        #[cfg(debug_assertions)]
+        // #[cfg(debug_assertions)]
         let start = Instant::now();
 
         // We look for the message, if it tells to terminate, then we kill all child threads and terminate this one
@@ -310,7 +309,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         }
 
         // PROFILING: This is for profiling and should be included only in debug build
-        if cfg!(debug_assertions) {
+        if !cfg!(debug_assertions) {
             let runtime = start.elapsed();
             println!("Spent {:?} ms on slice task", runtime);
         }
@@ -415,7 +414,7 @@ fn slabRunner(
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
-            #[cfg(debug_assertions)]
+            // #[cfg(debug_assertions)]
             let start = Instant::now();
 
             // Get the current frame identifier, it also drops the mutex as soon as possible so that other slabRunners for this slice can take it
@@ -447,7 +446,7 @@ fn slabRunner(
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
-            if cfg!(debug_assertions) {
+            if !cfg!(debug_assertions) {
                 let runtime = start.elapsed();
 
                 println!("Spent {:?} on slabRunner {}", runtime, slabConnection.id);

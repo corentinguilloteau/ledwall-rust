@@ -74,7 +74,8 @@ export default function Form(props: FormProps) {
 					data={data}
 					value={slice.spoutName}
 					onChange={(val) => {
-						if (val !== undefined) {
+						console.log(val);
+						if (val !== null) {
 							dispatch(setSliceSpoutName({ sliceID: props.sliceId, payload: val }));
 						}
 					}}
