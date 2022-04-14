@@ -32,7 +32,9 @@ pub enum LedwallError {
     #[serde(skip_serializing)]
     LedwallIOError(std::io::Error),
     #[from(ignore)]
-    LedwallIOCustomError,
+    LedwallPoisonError,
+    #[from(ignore)]
+    LedwallCustomError,
 }
 
 pub enum LedwallCommand {
@@ -75,7 +77,7 @@ impl LedwallStatusHolder {
         self.window = Some(Arc::new(window));
 
         match statusResult {
-            Err(_) => return Err(LedwallError::LedwallIOCustomError),
+            Err(_) => return Err(LedwallError::LedwallCustomError),
             Ok(s) => status = s,
         }
 
@@ -101,7 +103,7 @@ impl LedwallStatusHolder {
 
             return Ok(());
         } else {
-            return Err(LedwallError::LedwallIOCustomError);
+            return Err(LedwallError::LedwallCustomError);
         }
     }
 
@@ -117,7 +119,7 @@ impl LedwallStatusHolder {
         let commandSocket = self
             .commandSocket
             .as_ref()
-            .ok_or(LedwallError::LedwallIOCustomError)?
+            .ok_or(LedwallError::LedwallCustomError)?
             .try_clone()?;
 
         self.thread = Some(thread::spawn(move || {

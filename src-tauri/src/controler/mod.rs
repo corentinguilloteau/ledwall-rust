@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::api::slice::SliceData;
+use crate::api::{ledwall_status_holder::LedwallError, slice::SliceData};
 use cxx::let_cxx_string;
 use spout_rust::ffi::{self as spoutlib, SpoutDXAdapter};
 
@@ -29,6 +29,38 @@ struct ImageHolder {
 struct TaskHolder {
     task: JoinHandle<()>,
     taskChannel: Sender<ControlerMessage>,
+}
+
+trait TerminateThread<R> {
+    fn unwrap_or_terminate(
+        self,
+        interThreadSender: Sender<ControlerMessage>,
+    ) -> Result<R, LedwallError>;
+}
+
+impl<R, E> TerminateThread<R> for Result<R, E> {
+    fn unwrap_or_terminate(
+        self,
+        interThreadSender: Sender<ControlerMessage>,
+    ) -> Result<R, LedwallError> {
+        match self {
+            Ok(a) => return Ok(a),
+            Err(_) => return Err(LedwallError::LedwallCustomError),
+        }
+    }
+}
+
+trait ToLedwallResult<R> {
+    fn toLedwallResult(self) -> Result<R, LedwallError>;
+}
+
+impl<R, E> ToLedwallResult<R> for Result<R, E> {
+    fn toLedwallResult(self) -> Result<R, LedwallError> {
+        match self {
+            Ok(a) => return Ok(a),
+            Err(_) => return Err(LedwallError::LedwallCustomError),
+        }
+    }
 }
 
 pub fn runControlerThread(
@@ -101,7 +133,7 @@ pub fn runControlerThread(
         }
 
         if let Some(fId) = frameId {
-            frameId = Some((fId + 1) % 25);
+            frameId = Some((fId + 1) % 26);
         } else {
             frameId = Some(0);
         }
@@ -125,7 +157,7 @@ pub fn runControlerThread(
                 println!("{}", e);
             }
 
-            frameId = Some((fId + 1) % 25);
+            frameId = Some((fId + 1) % 26);
         } else {
             frameId = Some(0);
         }
@@ -204,7 +236,7 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
         let secureImageHolderClone = secureImageHolder.clone();
 
         let thread = thread::spawn(move || {
-            let _ = sendSlice(slab, frameCountClone, secureImageHolderClone);
+            let _ = slabRunner(slab, frameCountClone, secureImageHolderClone);
         });
 
         slabRunners.push(thread);
@@ -277,7 +309,7 @@ fn runSliceTask(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<()
     }
 }
 
-fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, ()> {
+fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError> {
     loop {
         if let Some(endip) = u8::try_from(slabConnection.id).ok() {
             let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, endip)), 9999);
@@ -297,120 +329,148 @@ fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, ()> {
                 Ok(_) => return Ok(connection),
             }
         } else {
-            return Err(());
+            return Err(LedwallError::LedwallCustomError);
         }
     }
 }
 
-fn sendSlice(
+fn slabRunner(
     slabConnection: SlabData,
-    frameIdPair: Arc<(Mutex<Option<u8>>, Condvar)>,
-    data: Arc<RwLock<ImageHolder>>,
-) -> Result<(), ()> {
-    let (frameIdMutex, cvar) = &*frameIdPair;
+    frameIdentifierPair: Arc<(Mutex<Option<u8>>, Condvar)>,
+    frameHolder: Arc<RwLock<ImageHolder>>,
+) -> Result<(), LedwallError> {
+    let (frameIdentifierMutex, frameIdentifierCondVar) = &*frameIdentifierPair;
 
     let mut previousFrameId = None;
 
+    // This is the buffer used to hold the bytes sent to the slab
+    let mut buffer = Vec::<u8>::new();
+    // It initialize the buffer with 0 values. It can be done only once because the slab size is constant
+    // during the execution of this thread
+    // 3 byte per pixel + 1 byte for the frame identifier
+    buffer.resize(
+        1 + 3 * slabConnection.slabHeight * slabConnection.slabWidth,
+        0,
+    );
+
+    // This is the main loop of the thread, it connects the thread to the slab and then the image is sent to the slab when required
+    // If a network error happens, the connection is rebuilt and then the image is sent again
     loop {
         let mut tcpConnection = getTcpConnection(&slabConnection)?;
 
+        // This loop sends the image to the slab periodically
         loop {
-            let frameIdResult = frameIdMutex.lock();
+            let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
 
-            let mut frameId;
-
-            match frameIdResult {
-                Err(_) => return Err(()),
-                Ok(fi) => frameId = fi,
+            // We wait here until the parent thread finish fetching the new frame and notifies the slab threads the new frame is available to be sent
+            while *frameIdentifier == previousFrameId {
+                frameIdentifier = frameIdentifierCondVar
+                    .wait(frameIdentifier)
+                    .toLedwallResult()?;
             }
 
-            while *frameId == previousFrameId {
-                match cvar.wait(frameId) {
-                    Err(_) => return Err(()),
-                    Ok(fi) => frameId = fi,
-                }
-            }
-
+            // PROFILING: This is for profiling and should be included only in debug build
+            #[cfg(debug_assertions)]
             let start = Instant::now();
 
-            previousFrameId = *frameId;
+            // Get the current frame identifier, it also drops the mutex as soon as possible so that other slabRunners for this slice can take it
+            let frameIdentifier = *frameIdentifier;
+            previousFrameId = frameIdentifier;
 
-            let realFrameId;
-
-            match *frameId {
+            // If we don't have a valid frame identifier, we just skip this turn
+            let realFrameIdentifier;
+            match frameIdentifier {
                 None => continue,
-                Some(fId) => realFrameId = fId,
+                Some(fId) => realFrameIdentifier = fId,
             }
 
-            // Get relevant data
-            let imageResult = data.read();
+            // Get the frame data. This uses a read/write mutex so that all slabRunners can access the frame at the same time
+            let frame = frameHolder.read().toLedwallResult()?;
 
-            let image;
-            match imageResult {
-                Err(_) => return Err(()),
-                Ok(im) => image = im,
-            }
+            // We copy the subframe of this slab to the buffer
+            populateFrameBuffer(&mut buffer, &*frame, &slabConnection, realFrameIdentifier);
 
-            // 3 byte per pixel + 1 byte for the frame identifier
-            let mut buffer = Vec::<u8>::with_capacity(
-                3 * slabConnection.slabWidth * slabConnection.slabHeight + 1,
-            );
-
-            buffer.resize(
-                3 * slabConnection.slabWidth * slabConnection.slabHeight + 1,
-                0,
-            );
-
-            buffer[0] = realFrameId as u8;
-
-            // Number of lines before the slab * the number of pixels in a line * the size of a pixel + the x shift pixel count of the beginnning of the slab
-            let mut lineOffset = slabConnection.slabHeight * slabConnection.yOffset;
-            let mut localFramePosition: usize = 1;
-            let mut localOffset: usize;
-
-            let imageLength = image.image.len();
-
-            for _ in 0..slabConnection.slabHeight {
-                for j in 0..slabConnection.slabWidth {
-                    if lineOffset % 2 == 0 {
-                        localOffset = (3 * j)
-                            + lineOffset * (image.image_size.width as usize) * 3
-                            + 3 * slabConnection.slabWidth * slabConnection.xOffset;
-
-                        if localOffset + 2 < imageLength {
-                            buffer[localFramePosition + 2] = image.image[localOffset];
-                            buffer[localFramePosition + 1] = image.image[localOffset + 1];
-                            buffer[localFramePosition] = image.image[localOffset + 2];
-                        }
-                    } else {
-                        localOffset = (lineOffset * (image.image_size.width as usize) * 3
-                            + 3 * slabConnection.slabWidth * (slabConnection.xOffset + 1)
-                            - 1)
-                            - (3 * j);
-                        if localOffset < imageLength {
-                            buffer[localFramePosition + 2] = image.image[localOffset - 2];
-                            buffer[localFramePosition + 1] = image.image[localOffset - 1];
-                            buffer[localFramePosition] = image.image[localOffset];
-                        }
-                    }
-
-                    localFramePosition += 3;
-                }
-
-                lineOffset += 1;
-            }
-
+            // We write the buffer to the socket to the slab using the previously opened socket
+            // If it fails, we exit the inner loop to create a new TCP socket to the slab
             if let Err(_) = tcpConnection.write_all(&buffer[..]) {
                 break;
             }
-
+            // We send the buffer to the slab using the previously opened socket
+            // If it fails, we exit the inner loop to create a new TCP socket to the slab
             if let Err(_) = tcpConnection.flush() {
                 break;
             }
 
-            let runtime = start.elapsed();
+            // PROFILING: This is for profiling and should be included only in debug build
+            if cfg!(debug_assertions) {
+                let runtime = start.elapsed();
 
-            println!("Spent {:?} ms on slab task", runtime);
+                println!("Spent {:?} on slabRunner {}", runtime, slabConnection.id);
+            }
         }
+    }
+}
+
+fn populateFrameBuffer(
+    buffer: &mut Vec<u8>,
+    frame: &ImageHolder,
+    slabInformations: &SlabData,
+    frameIdentifier: u8,
+) {
+    // The first byte sent to the slab is the frame identifier, between 0 and 25
+    buffer[0] = frameIdentifier as u8;
+
+    // Number of pixels in the frame, used to avoid out of bound exception
+    let frameLength = frame.image.len();
+    let frameWidth = frame.image_size.width as usize;
+    let slabHeight = slabInformations.slabHeight;
+    let slabWidth = slabInformations.slabWidth;
+    let slabXOffset = slabInformations.xOffset;
+    // The line offset is the pixel index corresponding the index of the line we want to copy, to start, it is the first line of the slab
+    // Number of lines in a slab * vertical position of the slab, starting from the top
+    let mut lineOffset = slabHeight * slabInformations.yOffset;
+    // This is the index of the current pixel being copied, in the frame buffer to be sent to the slab
+    // It starts at 1 because the first byte is for the frame identifier
+    let mut localFramePosition: usize = 1;
+
+    // Here, we want to copy the subframe corresponding to the slab from the actual frame to the buffer
+    // NOTE: It should be noted that the slab LEDs wiring is such that each even rows (stating from 0) are controlled
+    // from left to right and each odd rows are controlled from right to left. Thus, each odd row here is reversed
+    // We iterate over each rows of the slab
+    for _ in 0..slabHeight {
+        // We iterate over each pixel of the considered row
+        for j in 0..slabWidth {
+            let framePixelIndexInLine;
+            // We compute the start index in the frame of the pixel we want to copy
+            if lineOffset % 2 == 0 {
+                // This is an even row, thus we go left to right
+                // Here, we look for the index of the pixel we want in the current line
+                // It is: (the number of pixels before this slab in this row + the index of the pixel in this slab) * |RGB|
+                framePixelIndexInLine = (lineOffset * frameWidth + slabWidth * slabXOffset + j) * 3;
+            } else {
+                // This is an odd row, thus we go right to left
+                // Here, we look for the index of the pixel we want in the current line
+                // It is: (the number of pixels before the last pixel of this slab in this row + the index of the pixel in this slab) * |RGB| - |RGB| + 1
+                framePixelIndexInLine = (slabWidth * (slabXOffset + 1) - 1 - j) * 3 - 2;
+            }
+
+            // We then get the actual pixel in the whole frame
+            let framePixelIndex = lineOffset * frameWidth + framePixelIndexInLine;
+
+            // We then copy the pixel to the buffer
+            // NOTE: the pixels in the buffer are in RGB format but in BGR format in the frame
+            // We also skip the copy if the pixel is out of the frame line
+            if framePixelIndex + 2 < frameLength && framePixelIndexInLine < frameWidth {
+                buffer[localFramePosition + 2] = frame.image[framePixelIndex];
+                buffer[localFramePosition + 1] = frame.image[framePixelIndex + 1];
+                buffer[localFramePosition] = frame.image[framePixelIndex + 2];
+            }
+
+            // We can increment the buffer pixel index by |RGB|
+            localFramePosition += 3;
+        }
+
+        // We finished the line, we can go to the next one
+        lineOffset += 1;
     }
 }

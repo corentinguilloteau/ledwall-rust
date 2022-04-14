@@ -47,7 +47,7 @@ pub async fn startFrameSender(
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(LedwallError::LedwallIOCustomError),
+        Err(_) => return Err(LedwallError::LedwallCustomError),
     }
 
     return holder.run(slices, window);
