@@ -261,7 +261,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         let message = recv.recv();
 
         // PROFILING: This is for profiling and should be included only in debug build
-        // #[cfg(debug_assertions)]
+        #[cfg(debug_assertions)]
         let start = Instant::now();
 
         // We look for the message, if it tells to terminate, then we kill all child threads and terminate this one
@@ -309,7 +309,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         }
 
         // PROFILING: This is for profiling and should be included only in debug build
-        if !cfg!(debug_assertions) {
+        if cfg!(debug_assertions) {
             let runtime = start.elapsed();
             println!("Spent {:?} ms on slice task", runtime);
         }
@@ -414,7 +414,7 @@ fn slabRunner(
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
-            // #[cfg(debug_assertions)]
+            #[cfg(debug_assertions)]
             let start = Instant::now();
 
             // Get the current frame identifier, it also drops the mutex as soon as possible so that other slabRunners for this slice can take it
@@ -446,7 +446,7 @@ fn slabRunner(
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
-            if !cfg!(debug_assertions) {
+            if cfg!(debug_assertions) {
                 let runtime = start.elapsed();
 
                 println!("Spent {:?} on slabRunner {}", runtime, slabConnection.id);

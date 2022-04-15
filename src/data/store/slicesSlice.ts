@@ -19,6 +19,7 @@ export const slicesSlice = createSlice({
 		setSliceSlabHeight: reducers.setSliceSlabHeightReducer,
 		setSliceColor: reducers.setSliceColorReducer,
 		setSlab: reducers.setSlabReducer,
+		loadSlabs: reducers.loadSlabsReducer,
 	},
 });
 
@@ -33,6 +34,7 @@ export const {
 	setSliceSlabHeight,
 	setSliceColor,
 	setSlab,
+	loadSlabs,
 } = slicesSlice.actions;
 
 export default slicesSlice.reducer;

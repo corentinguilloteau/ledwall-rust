@@ -1,5 +1,5 @@
 import { Draft, PayloadAction } from "@reduxjs/toolkit";
-import { defaultSlice, SlabPayload, SlicePayload, SlicesState } from "../types/Slice";
+import Slice, { defaultSlice, SlabPayload, SlicePayload, SlicesState } from "../types/Slice";
 
 function identifiersSanityCheck(id: number): boolean {
 	return Number.isInteger(id) && id >= 0;
@@ -132,4 +132,8 @@ export function setSlabReducer(state: Draft<SlicesState>, action: PayloadAction<
 			}
 		}
 	}
+}
+
+export function loadSlabsReducer(state: Draft<SlicesState>, action: PayloadAction<Slice[]>) {
+	state.slices = action.payload;
 }

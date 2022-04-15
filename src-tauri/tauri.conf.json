@@ -49,7 +49,16 @@
 		"updater": {
 			"active": false
 		},
-		"allowlist": {},
+		"allowlist": {
+			"dialog": {
+				"open": true,
+				"save": true
+			},
+			"fs": {
+				"readFile": true,
+				"writeFile": true
+			}
+		},
 		"windows": [
 			{
 				"title": "TSM - Ledwall Controller",
