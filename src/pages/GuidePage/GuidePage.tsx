@@ -18,7 +18,7 @@ class GuidePage extends React.Component {
 						}`,
 						borderRadius: `${theme.radius["md"]}px`,
 					})}>
-					<Text>Guide </Text>
+					<Text>A venir</Text>
 				</Paper>
 			</Page>
 		);

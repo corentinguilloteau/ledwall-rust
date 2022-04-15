@@ -19,66 +19,7 @@ class ConsolePage extends React.Component {
 						}`,
 						borderRadius: `${theme.radius["md"]}px`,
 					})}>
-					<Text>
-						aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-					</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					{/* <Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text>
-					<Text>Test</Text> */}
+					<Text>A venir</Text>
 				</Paper>
 			</Page>
 		);
