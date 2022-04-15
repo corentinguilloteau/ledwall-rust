@@ -1,5 +1,5 @@
 import { Paper, Tabs } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Plus } from "tabler-icons-react";
 import { addSlice } from "../../data/store/slicesSlice";
@@ -13,9 +13,24 @@ export default function SlicesContainer() {
 
 	const dispatch = useDispatch();
 
-	const [activeTab, setActiveTab] = useState(0);
+	let defaultTab;
+
+	if (slices.length === 0) {
+		defaultTab = 0;
+	} else {
+		defaultTab = 1;
+	}
+
+	const [activeTab, setActiveTab] = useState(defaultTab);
+
+	useEffect(() => {
+		if (slices.length === 0) {
+			setActiveTab(0);
+		}
+	}, [slices]);
 
 	function onTabChange(active: number, tabKey: string) {
+		console.log("cahnged");
 		if (tabKey === "addTab") {
 			dispatch(addSlice());
 
