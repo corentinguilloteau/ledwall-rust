@@ -11,6 +11,7 @@ enum LedwallControlTestsEnum {
 	Version = "version",
 	Shutdown = "shutdown",
 	Restart = "restart",
+	Reboot = "reboot",
 	// Color = "color",
 }
 

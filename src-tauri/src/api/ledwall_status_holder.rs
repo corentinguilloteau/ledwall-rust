@@ -8,7 +8,7 @@ use std::{
 };
 
 use derive_more::From;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Window;
 
 use crate::controler::{ledwallRunner, ControlerMessage};
@@ -37,12 +37,15 @@ pub enum LedwallError {
     LedwallCustomError,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum LedwallCommand {
     Live,
     Shutdown,
     Restart,
-    ShowNumber,
-    ShowVersion,
+    Reboot,
+    Number,
+    Version,
 }
 
 pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;
@@ -122,13 +125,12 @@ impl LedwallStatusHolder {
             .ok_or(LedwallError::LedwallCustomError)?
             .try_clone()?;
 
+        println!("Sending live command");
+        LedwallStatusHolder::sendCommand(LedwallCommand::Live, commandSocket.try_clone().unwrap());
+
         self.thread = Some(thread::spawn(move || {
             println!("Starting controler");
             ledwallRunner(receiver, slices, commandSocket.try_clone().unwrap());
-
-            println!("Sending live command");
-
-            LedwallStatusHolder::sendCommand(LedwallCommand::Live, commandSocket);
 
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
@@ -141,16 +143,42 @@ impl LedwallStatusHolder {
         return Ok(sender);
     }
 
+    pub fn command(&self, command: LedwallCommand) -> Result<(), LedwallError> {
+        let statusResult = self.status.write();
+        let mut status;
+
+        match statusResult {
+            Err(_) => return Err(LedwallError::LedwallCustomError),
+            Ok(s) => status = s,
+        }
+
+        if status.status == LedwallControlStatusEnum::Stopped {
+            println!("Opening socket");
+            let socket = UdpSocket::bind("127.0.0.1:8888")?;
+            socket.set_broadcast(true)?;
+            socket.connect("127.0.0.255:8888")?;
+
+            println!("Sending command");
+
+            return LedwallStatusHolder::sendCommand(command, socket);
+        } else {
+            return Err(LedwallError::LedwallCustomError);
+        }
+    }
+
     fn sendCommand(command: LedwallCommand, socket: UdpSocket) -> Result<(), LedwallError> {
         let commandChar: char;
 
         match command {
             LedwallCommand::Live => commandChar = 'l',
-            LedwallCommand::Shutdown => commandChar = 's',
-            LedwallCommand::Restart => commandChar = 'r',
-            LedwallCommand::ShowNumber => commandChar = 'n',
-            LedwallCommand::ShowVersion => commandChar = 'v',
+            LedwallCommand::Shutdown => commandChar = 'p',
+            LedwallCommand::Restart => commandChar = 's',
+            LedwallCommand::Reboot => commandChar = 'r',
+            LedwallCommand::Number => commandChar = 'n',
+            LedwallCommand::Version => commandChar = 'v',
         }
+
+        println!("Command is {}", commandChar);
 
         socket.send(&[commandChar as u8])?;
         socket.send(&[commandChar as u8])?;
@@ -162,14 +190,10 @@ impl LedwallStatusHolder {
         let statusResult = self.status.write();
         let mut status;
 
-        println!("Stopping");
-
         match statusResult {
             Err(_) => return Err(()),
             Ok(s) => status = s,
         }
-
-        println!("Status: {:?}", *status);
 
         if status.status == LedwallControlStatusEnum::Displaying {
             if let Some(sender) = &self.messageSender {

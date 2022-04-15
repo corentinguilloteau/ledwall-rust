@@ -3,7 +3,11 @@ use spout_rust::ffi as spoutlib;
 use spoutlib::SpoutDXAdapter;
 use tauri::Window;
 
-use self::{ledwall_status_holder::LedwallError, ledwallcontrol::LedwallControl, slice::SliceData};
+use self::{
+    ledwall_status_holder::{LedwallCommand, LedwallError},
+    ledwallcontrol::LedwallControl,
+    slice::SliceData,
+};
 
 pub mod ledwall_status_holder;
 pub mod ledwallcontrol;
@@ -79,4 +83,19 @@ pub fn fetch_status(
     }
 
     return holder.getStatus();
+}
+
+#[tauri::command]
+pub fn testSender(
+    state: tauri::State<'_, SafeLedwallStatusHolder>,
+    command: LedwallCommand,
+) -> Result<(), LedwallError> {
+    let holder;
+
+    match state.lock() {
+        Ok(state) => holder = state,
+        Err(_) => return Err(LedwallError::LedwallCustomError),
+    }
+
+    return holder.command(command);
 }

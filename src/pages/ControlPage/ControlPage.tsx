@@ -11,8 +11,6 @@ import ControlPageIcon from "./ControlPageIcon";
 function ControlPage() {
 	let [status] = useRemoteState<LedwallControlHolder>("status");
 
-	function onTestClick(testType: LedwallControlTests) {}
-
 	return (
 		<Page title="Commandes">
 			<Grid
@@ -34,7 +32,7 @@ function ControlPage() {
 					{status === null ? null : <ControlPageIcon status={status.status} />}
 				</Grid.Col>
 				<Grid.Col style={{ flex: "1 1 auto", display: "flex", alignItems: "center" }}>
-					{status === null ? null : <ControlPageButtons status={status} onTestClick={onTestClick} />}
+					{status === null ? null : <ControlPageButtons status={status} />}
 				</Grid.Col>
 			</Grid>
 		</Page>

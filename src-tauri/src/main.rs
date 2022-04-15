@@ -132,7 +132,8 @@ fn main() {
             api::fetchSpoutNames,
             api::stopFrameSender,
             api::startFrameSender,
-            api::fetch_status
+            api::fetch_status,
+            api::testSender
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

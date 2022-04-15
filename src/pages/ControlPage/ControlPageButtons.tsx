@@ -11,7 +11,6 @@ type OnOff = "on" | "off";
 
 interface ControlPageButtonsProps {
 	status: LedwallControlHolder;
-	onTestClick: (testType: LedwallControlTests) => void;
 }
 
 function getState(holder: LedwallControlHolder): [OnOff, boolean, boolean] {
@@ -55,7 +54,8 @@ let TestSelectText: { [key in LedwallControlTests]: string } = {
 	number: "Identifiants de dalles",
 	version: "Version des dalles",
 	shutdown: "Eteindre les dalles",
-	restart: "Redémarrer les dalles",
+	restart: "Soft reset des dalles",
+	reboot: "Hard reset des dalles",
 	// [LedwallControlTests.Color]: "Afficher les couleurs de test",
 };
 
@@ -75,16 +75,15 @@ function getListOfTestChoices(): TestChoice[] {
 }
 
 function ControlPageButtons(props: ControlPageButtonsProps) {
-	let [startStopButton, startStopButtonEnabled, testButtonEnabled] = getState(props.status);
+	const slices = useSelector((state: RootState) => state.slices.slices);
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
-	const slices = useSelector((state: RootState) => state.slices.slices);
+	let [testStatus, , , testCommand] = useRPC(invoke, "testSender");
 
+	let [startStopButton, startStopButtonEnabled, testButtonEnabled] = getState(props.status);
 	let [startStatus, , , sendStartCommand] = useRPC(invoke, "startFrameSender");
-
 	let [stopStatus, , , sendStopCommand] = useRPC(invoke, "stopFrameSender");
-
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
 		on: () => {
 			sendStartCommand({ slices: slices });
@@ -146,8 +145,10 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 						style={{ flex: "1 1 auto" }}
 						color="yellow"
 						disabled={!testButtonEnabled}
+						loading={testStatus === "loading"}
+						leftIcon={testStatus === "error" ? <HandStop /> : null}
 						onClick={() => {
-							props.onTestClick(currentTest);
+							testCommand({ command: currentTest });
 						}}>
 						Envoyer la commande
 					</Button>
