@@ -54,6 +54,8 @@ let OnOffButtonColor: { [key in OnOff]: string } = {
 let TestSelectText: { [key in LedwallControlTests]: string } = {
 	number: "Identifiants de dalles",
 	version: "Version des dalles",
+	shutdown: "Eteindre les dalles",
+	restart: "Redémarrer les dalles",
 	// [LedwallControlTests.Color]: "Afficher les couleurs de test",
 };
 

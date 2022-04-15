@@ -9,6 +9,8 @@ enum LedwallControlStatusEnum {
 enum LedwallControlTestsEnum {
 	Number = "number",
 	Version = "version",
+	Shutdown = "shutdown",
+	Restart = "restart",
 	// Color = "color",
 }
 
