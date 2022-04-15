@@ -50,7 +50,7 @@ impl<R, E> TerminateThread<R> for Result<R, E> {
     }
 }
 
-trait ToLedwallResult<R> {
+pub trait ToLedwallResult<R> {
     fn toLedwallResult(self) -> Result<R, LedwallError>;
 }
 
@@ -115,11 +115,14 @@ pub fn ledwallRunner(
 
         let taskToLocalSenderClone = taskToLocalSender.clone();
         let localSlice = slice.clone();
-        let task = thread::spawn(move || match sliceRunner(localToTaskReceiver, localSlice) {
-            Ok(_) => (),
-            Err(_) => {
-                let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
+        let task = thread::spawn(move || {
+            match sliceRunner(localToTaskReceiver, localSlice) {
+                Ok(_) => (),
+                Err(_) => {
+                    let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
+                }
             }
+            println!("Slice runner finished");
         });
 
         let taskHolder = TaskHolder {
@@ -143,12 +146,12 @@ pub fn ledwallRunner(
         // Here we look at a potential incoming message from the parent thread
         match receiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
-                terminate(tasks);
+                terminateSliceRunners(tasks);
                 return;
             }
             Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
-                terminate(tasks);
+                terminateSliceRunners(tasks);
                 return;
             }
             _ => (),
@@ -157,12 +160,12 @@ pub fn ledwallRunner(
         // We do the same for messages comming from child threads
         match taskToLocalReceiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
-                terminate(tasks);
+                terminateSliceRunners(tasks);
                 return;
             }
             Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
-                terminate(tasks);
+                terminateSliceRunners(tasks);
                 return;
             }
             _ => (),
@@ -198,8 +201,9 @@ pub fn ledwallRunner(
     }
 }
 
-fn terminate(tasks: Vec<TaskHolder>) {
+fn terminateSliceRunners(tasks: Vec<TaskHolder>) {
     for task in tasks {
+        println!("Terminating slice runner");
         match task.taskChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
@@ -207,6 +211,8 @@ fn terminate(tasks: Vec<TaskHolder>) {
             }
         }
     }
+
+    println!("Slice runners terminated");
 }
 
 struct SlabData {
@@ -215,6 +221,11 @@ struct SlabData {
     slabHeight: usize,
     xOffset: usize,
     yOffset: usize,
+}
+
+struct SlabRunner {
+    thread: JoinHandle<()>,
+    sliceChannel: Sender<ControlerMessage>,
 }
 
 fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), LedwallError> {
@@ -245,12 +256,16 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
     let frameIdentifier: Arc<(Mutex<Option<u8>>, Condvar)> =
         Arc::new((Mutex::new(None), Condvar::new()));
 
-    let mut slabRunners = Vec::new();
+    // This channel is used to by slabs to notifiy this thread that they finished, either correctly or with an error
+    let (slabToLocalSender, slabToLocalReceiver) = channel();
+
+    let mut slabRunners: Vec<SlabRunner> = Vec::new();
     initSlice(
         &mut slabRunners,
         &slice,
         frameIdentifier.clone(),
         secureImageHolder.clone(),
+        slabToLocalSender,
     );
 
     let (frameIdentifierMutex, frameIdentifierCVar) = &*frameIdentifier;
@@ -266,9 +281,21 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
 
         // We look for the message, if it tells to terminate, then we kill all child threads and terminate this one
         match message {
-            Ok(ControlerMessage::Terminate) => return Ok(()),
+            Ok(ControlerMessage::Terminate) => return terminateSlabRunners(slabRunners),
             Ok(ControlerMessage::Tick(fId)) => localFrameIdentifier = fId,
-            Err(_) => return Err(LedwallError::LedwallCustomError),
+            Err(_) => return terminateSlabRunners(slabRunners),
+        }
+
+        // We do the same for messages comming from child threads
+        match slabToLocalReceiver.try_recv() {
+            Err(TryRecvError::Disconnected) => {
+                return terminateSlabRunners(slabRunners);
+            }
+            Err(TryRecvError::Empty) => (),
+            Ok(ControlerMessage::Terminate) => {
+                return terminateSlabRunners(slabRunners);
+            }
+            _ => (),
         }
 
         let mut imageHolder = secureImageHolder.write().toLedwallResult()?;
@@ -316,11 +343,29 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
     }
 }
 
+fn terminateSlabRunners(runners: Vec<SlabRunner>) -> Result<(), LedwallError> {
+    for runner in runners {
+        println!("Terminating slab runner");
+
+        match runner.sliceChannel.send(ControlerMessage::Terminate) {
+            Err(_) => (),
+            _ => {
+                let _ = runner.thread.join();
+            }
+        }
+    }
+
+    println!("Slab runners terminated");
+
+    return Ok(());
+}
+
 fn initSlice(
-    runners: &mut Vec<JoinHandle<()>>,
+    runners: &mut Vec<SlabRunner>,
     slice: &SliceData,
     frameCountCondVar: Arc<(Mutex<Option<u8>>, Condvar)>,
     secureImageHolder: Arc<RwLock<ImageHolder>>,
+    slabToLocalSender: Sender<ControlerMessage>,
 ) {
     let slabs = slice.getSlab();
 
@@ -336,45 +381,58 @@ fn initSlice(
                     yOffset: slabLine,
                 };
 
+                let (localToSlabSender, localToSlabReceiver) = channel();
+
                 let frameCountCondVarClone = frameCountCondVar.clone();
                 let secureImageHolderClone = secureImageHolder.clone();
+                let slabToLocalSenderClone = slabToLocalSender.clone();
+
                 // For each slab, we create the slab runner thread
                 let thread = thread::spawn(move || {
                     let _ = slabRunner(
                         slabInformation,
                         frameCountCondVarClone,
                         secureImageHolderClone,
+                        localToSlabReceiver,
                     );
+
+                    let _ = slabToLocalSenderClone.send(ControlerMessage::Terminate);
+
+                    println!("Slab runner terminated");
                 });
 
-                runners.push(thread);
+                runners.push(SlabRunner {
+                    thread: thread,
+                    sliceChannel: localToSlabSender,
+                });
             }
         }
     }
 }
 
 fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError> {
-    loop {
-        if let Some(endip) = u8::try_from(slabConnection.id).ok() {
-            let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, endip)), 9999);
-            let connectionResult = TcpStream::connect_timeout(&socket, Duration::from_secs(10));
+    if let Some(endip) = u8::try_from(slabConnection.id).ok() {
+        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, endip)), 9999);
+        let connectionResult = TcpStream::connect_timeout(&socket, Duration::from_secs(10));
 
-            let connection;
-            match connectionResult {
-                Err(_) => {
-                    println!("Cannot connect to slab {}", slabConnection.id);
-                    continue;
-                }
-                Ok(c) => connection = c,
+        let connection;
+        match connectionResult {
+            Err(_) => {
+                println!("Cannot connect to slab {}", slabConnection.id);
+                return Err(LedwallError::LedwallCustomError);
             }
-
-            match connection.set_write_timeout(Some(Duration::from_secs(5))) {
-                Err(_) => println!("Cannot set timeout for slab {}", slabConnection.id),
-                Ok(_) => return Ok(connection),
-            }
-        } else {
-            return Err(LedwallError::LedwallCustomError);
+            Ok(c) => connection = c,
         }
+
+        match connection.set_write_timeout(Some(Duration::from_secs(5))) {
+            Err(_) => {
+                println!("Cannot set timeout for slab {}", slabConnection.id);
+                return Err(LedwallError::LedwallCustomError);
+            }
+            Ok(_) => return Ok(connection),
+        }
+    } else {
+        return Err(LedwallError::LedwallFatalError);
     }
 }
 
@@ -382,6 +440,7 @@ fn slabRunner(
     slabConnection: SlabData,
     frameIdentifierPair: Arc<(Mutex<Option<u8>>, Condvar)>,
     frameHolder: Arc<RwLock<ImageHolder>>,
+    fromSliceReceiver: Receiver<ControlerMessage>,
 ) -> Result<(), LedwallError> {
     let (frameIdentifierMutex, frameIdentifierCondVar) = &*frameIdentifierPair;
 
@@ -400,10 +459,39 @@ fn slabRunner(
     // This is the main loop of the thread, it connects the thread to the slab and then the image is sent to the slab when required
     // If a network error happens, the connection is rebuilt and then the image is sent again
     loop {
-        let mut tcpConnection = getTcpConnection(&slabConnection)?;
+        match fromSliceReceiver.try_recv() {
+            Err(TryRecvError::Disconnected) => {
+                return Err(LedwallError::LedwallCustomError);
+            }
+            Err(TryRecvError::Empty) => (),
+            Ok(ControlerMessage::Terminate) => {
+                return Ok(());
+            }
+            _ => (),
+        }
+
+        let mut tcpConnection;
+        match getTcpConnection(&slabConnection) {
+            Ok(c) => tcpConnection = c,
+            Err(LedwallError::LedwallFatalError) => return Err(LedwallError::LedwallFatalError),
+            Err(_) => continue,
+        }
 
         // This loop sends the image to the slab periodically
         loop {
+            // Here we look at a potential incoming message from the parent thread
+            match fromSliceReceiver.try_recv() {
+                Err(TryRecvError::Disconnected) => {
+                    return Err(LedwallError::LedwallCustomError);
+                }
+                Err(TryRecvError::Empty) => (),
+                Ok(ControlerMessage::Terminate) => {
+                    println!("Received terminate message");
+                    return Ok(());
+                }
+                _ => (),
+            }
+
             let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
 
             // We wait here until the parent thread finish fetching the new frame and notifies the slab threads the new frame is available to be sent

@@ -11,7 +11,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use tauri::Window;
 
-use crate::controler::{ledwallRunner, ControlerMessage};
+use crate::controler::{ledwallRunner, ControlerMessage, ToLedwallResult};
 
 use super::{
     ledwallcontrol::{LedwallControl, LedwallControlStatusEnum},
@@ -24,7 +24,6 @@ pub struct LedwallStatusHolder {
     thread: Option<JoinHandle<()>>,
     messageSender: Option<Sender<ControlerMessage>>,
     window: Option<Arc<Window>>,
-    commandSocket: Option<UdpSocket>,
 }
 
 #[derive(From, Serialize)]
@@ -35,6 +34,8 @@ pub enum LedwallError {
     LedwallPoisonError,
     #[from(ignore)]
     LedwallCustomError,
+    #[from(ignore)]
+    LedwallFatalError,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,7 +61,6 @@ impl LedwallStatusHolder {
             thread: None,
             messageSender: None,
             window: None,
-            commandSocket: None,
         }
     }
 
@@ -83,12 +83,6 @@ impl LedwallStatusHolder {
             Err(_) => return Err(LedwallError::LedwallCustomError),
             Ok(s) => status = s,
         }
-
-        let socket = UdpSocket::bind("127.0.0.1:8888")?;
-        socket.set_broadcast(true)?;
-        socket.connect("127.0.0.255:8888")?;
-
-        self.commandSocket = Some(socket);
 
         if status.status == LedwallControlStatusEnum::Stopped {
             let localSlices = slicesData.to_vec();
@@ -119,18 +113,16 @@ impl LedwallStatusHolder {
         let statusHandle = self.status.clone();
         let windowHandle = self.window.clone();
 
-        let commandSocket = self
-            .commandSocket
-            .as_ref()
-            .ok_or(LedwallError::LedwallCustomError)?
-            .try_clone()?;
+        let socket = UdpSocket::bind("127.0.0.1:8888")?;
+        socket.set_broadcast(true)?;
+        socket.connect("127.0.0.255:8888")?;
 
-        println!("Sending live command");
-        LedwallStatusHolder::sendCommand(LedwallCommand::Live, commandSocket.try_clone().unwrap());
+        LedwallStatusHolder::sendCommand(LedwallCommand::Live, socket.try_clone()?)?;
+
+        let socketClone = socket.try_clone()?;
 
         self.thread = Some(thread::spawn(move || {
-            println!("Starting controler");
-            ledwallRunner(receiver, slices, commandSocket.try_clone().unwrap());
+            ledwallRunner(receiver, slices, socketClone);
 
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
@@ -144,21 +136,12 @@ impl LedwallStatusHolder {
     }
 
     pub fn command(&self, command: LedwallCommand) -> Result<(), LedwallError> {
-        let statusResult = self.status.write();
-        let mut status;
-
-        match statusResult {
-            Err(_) => return Err(LedwallError::LedwallCustomError),
-            Ok(s) => status = s,
-        }
+        let status = self.status.write().toLedwallResult()?;
 
         if status.status == LedwallControlStatusEnum::Stopped {
-            println!("Opening socket");
             let socket = UdpSocket::bind("127.0.0.1:8888")?;
             socket.set_broadcast(true)?;
             socket.connect("127.0.0.255:8888")?;
-
-            println!("Sending command");
 
             return LedwallStatusHolder::sendCommand(command, socket);
         } else {
@@ -186,31 +169,26 @@ impl LedwallStatusHolder {
         return Ok(());
     }
 
-    pub fn stop(&mut self) -> Result<(), ()> {
-        let statusResult = self.status.write();
-        let mut status;
-
-        match statusResult {
-            Err(_) => return Err(()),
-            Ok(s) => status = s,
-        }
+    pub fn stop(&mut self) -> Result<(), LedwallError> {
+        let status = self.status.read().toLedwallResult()?;
 
         if status.status == LedwallControlStatusEnum::Displaying {
+            drop(status);
             if let Some(sender) = &self.messageSender {
-                match sender.send(ControlerMessage::Terminate) {
-                    Err(_) => return Err(()),
-                    _ => (()),
-                }
+                sender.send(ControlerMessage::Terminate).toLedwallResult()?;
 
+                if let Some(thread) = self.thread.take() {
+                    thread.join().toLedwallResult()?;
+                }
                 self.thread = None;
                 self.messageSender = None;
-
+                let mut status = self.status.write().toLedwallResult()?;
                 status.status = LedwallControlStatusEnum::Stopped;
             }
 
             return Ok(());
         } else {
-            return Err(());
+            return Err(LedwallError::LedwallCustomError);
         }
     }
 }

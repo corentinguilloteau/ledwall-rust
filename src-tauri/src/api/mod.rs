@@ -58,14 +58,16 @@ pub async fn startFrameSender(
 }
 
 #[tauri::command]
-pub async fn stopFrameSender(state: tauri::State<'_, SafeLedwallStatusHolder>) -> Result<(), ()> {
+pub async fn stopFrameSender(
+    state: tauri::State<'_, SafeLedwallStatusHolder>,
+) -> Result<(), LedwallError> {
     let mut holder;
 
     println!("Stop call");
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(()),
+        Err(_) => return Err(LedwallError::LedwallCustomError),
     }
 
     return holder.stop();

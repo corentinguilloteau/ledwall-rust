@@ -103,7 +103,7 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 					color={OnOffButtonColor[startStopButton]}
 					disabled={!startStopButtonEnabled}
 					onClick={OnOffButtonClick[startStopButton]}
-					loading={stopStatus === "loading"}
+					loading={startStatus === "loading"}
 					leftIcon={startStatus === "error" ? <HandStop /> : null}>
 					{OnOffButtonText[startStopButton]}
 				</Button>
@@ -116,7 +116,7 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 					color={OnOffButtonColor[startStopButton]}
 					disabled={!startStopButtonEnabled}
 					onClick={OnOffButtonClick[startStopButton]}
-					loading={startStatus === "loading"}
+					loading={stopStatus === "loading"}
 					leftIcon={stopStatus === "error" ? <HandStop /> : null}>
 					{OnOffButtonText[startStopButton]}
 				</Button>
