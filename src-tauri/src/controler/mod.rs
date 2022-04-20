@@ -336,10 +336,10 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         }
 
         // PROFILING: This is for profiling and should be included only in debug build
-        if cfg!(debug_assertions) {
-            let runtime = start.elapsed();
-            println!("Spent {:?} ms on slice task", runtime);
-        }
+        // if cfg!(debug_assertions) {
+        //     let runtime = start.elapsed();
+        //     println!("Spent {:?} ms on slice task", runtime);
+        // }
     }
 }
 
@@ -412,7 +412,7 @@ fn initSlice(
 
 fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError> {
     if let Some(endip) = u8::try_from(slabConnection.id).ok() {
-        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, endip)), 9999);
+        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, endip + 50)), 9999);
         let connectionResult = TcpStream::connect_timeout(&socket, Duration::from_secs(10));
 
         let connection;
@@ -534,11 +534,11 @@ fn slabRunner(
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
-            if cfg!(debug_assertions) {
-                let runtime = start.elapsed();
+            // if cfg!(debug_assertions) {
+            //     let runtime = start.elapsed();
 
-                println!("Spent {:?} on slabRunner {}", runtime, slabConnection.id);
-            }
+            //     println!("Spent {:?} on slabRunner {}", runtime, slabConnection.id);
+            // }
         }
     }
 }

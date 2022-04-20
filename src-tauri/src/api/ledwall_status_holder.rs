@@ -113,9 +113,10 @@ impl LedwallStatusHolder {
         let statusHandle = self.status.clone();
         let windowHandle = self.window.clone();
 
-        let socket = UdpSocket::bind("127.0.0.1:8888")?;
+        let socket = UdpSocket::bind(("192.168.1.1", 0))?;
         socket.set_broadcast(true)?;
-        socket.connect("127.0.0.255:8888")?;
+        let address = socket.local_addr()?;
+        socket.connect(("192.168.1.255", 8888))?;
 
         LedwallStatusHolder::sendCommand(LedwallCommand::Live, socket.try_clone()?)?;
 
@@ -139,9 +140,9 @@ impl LedwallStatusHolder {
         let status = self.status.write().toLedwallResult()?;
 
         if status.status == LedwallControlStatusEnum::Stopped {
-            let socket = UdpSocket::bind("127.0.0.1:8888")?;
+            let socket = UdpSocket::bind(("192.168.1.1", 0))?;
             socket.set_broadcast(true)?;
-            socket.connect("127.0.0.255:8888")?;
+            socket.connect(("192.168.1.255", 0))?;
 
             return LedwallStatusHolder::sendCommand(command, socket);
         } else {
