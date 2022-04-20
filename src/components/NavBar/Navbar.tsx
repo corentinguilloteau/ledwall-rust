@@ -70,6 +70,17 @@ class Navbar extends React.Component {
 				<MantineNavbar.Section grow mt="md">
 					<MainLinks />
 				</MantineNavbar.Section>
+				<MantineNavbar.Section mt="md">
+					<Text size="sm" align="center" color="dimmed">
+						Par Corentin Guilloteau
+					</Text>
+					<Text size="sm" align="center" color="dimmed">
+						Pour TSM
+					</Text>
+					<Text size="sm" align="center" color="dimmed">
+						Version <b>0.1-rc1</b>
+					</Text>
+				</MantineNavbar.Section>
 			</MantineNavbar>
 		);
 	}
