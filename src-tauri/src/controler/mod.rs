@@ -115,14 +115,11 @@ pub fn ledwallRunner(
 
         let taskToLocalSenderClone = taskToLocalSender.clone();
         let localSlice = slice.clone();
-        let task = thread::spawn(move || {
-            match sliceRunner(localToTaskReceiver, localSlice) {
-                Ok(_) => (),
-                Err(_) => {
-                    let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
-                }
+        let task = thread::spawn(move || match sliceRunner(localToTaskReceiver, localSlice) {
+            Ok(_) => (),
+            Err(_) => {
+                let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
             }
-            println!("Slice runner finished");
         });
 
         let taskHolder = TaskHolder {
@@ -203,7 +200,6 @@ pub fn ledwallRunner(
 
 fn terminateSliceRunners(tasks: Vec<TaskHolder>) {
     for task in tasks {
-        println!("Terminating slice runner");
         match task.taskChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
@@ -211,8 +207,6 @@ fn terminateSliceRunners(tasks: Vec<TaskHolder>) {
             }
         }
     }
-
-    println!("Slice runners terminated");
 }
 
 struct SlabData {
@@ -345,8 +339,6 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
 
 fn terminateSlabRunners(runners: Vec<SlabRunner>) -> Result<(), LedwallError> {
     for runner in runners {
-        println!("Terminating slab runner");
-
         match runner.sliceChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
@@ -354,8 +346,6 @@ fn terminateSlabRunners(runners: Vec<SlabRunner>) -> Result<(), LedwallError> {
             }
         }
     }
-
-    println!("Slab runners terminated");
 
     return Ok(());
 }
@@ -397,8 +387,6 @@ fn initSlice(
                     );
 
                     let _ = slabToLocalSenderClone.send(ControlerMessage::Terminate);
-
-                    println!("Slab runner terminated");
                 });
 
                 runners.push(SlabRunner {
@@ -426,7 +414,7 @@ fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError
 
         match connection.set_write_timeout(Some(Duration::from_secs(5))) {
             Err(_) => {
-                println!("Cannot set timeout for slab {}", slabConnection.id);
+                eprintln!("Cannot set timeout for slab {}", slabConnection.id);
                 return Err(LedwallError::LedwallCustomError);
             }
             Ok(_) => return Ok(connection),
@@ -479,26 +467,29 @@ fn slabRunner(
 
         // This loop sends the image to the slab periodically
         loop {
-            // Here we look at a potential incoming message from the parent thread
-            match fromSliceReceiver.try_recv() {
-                Err(TryRecvError::Disconnected) => {
-                    return Err(LedwallError::LedwallCustomError);
-                }
-                Err(TryRecvError::Empty) => (),
-                Ok(ControlerMessage::Terminate) => {
-                    println!("Received terminate message");
-                    return Ok(());
-                }
-                _ => (),
-            }
-
             let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
 
             // We wait here until the parent thread finish fetching the new frame and notifies the slab threads the new frame is available to be sent
             while *frameIdentifier == previousFrameId {
-                frameIdentifier = frameIdentifierCondVar
-                    .wait(frameIdentifier)
+                // Here we look at a potential incoming message from the parent thread
+                // It is here to avoid deadlocks caused by the controller thread not sending updates anymore after
+                // a termination
+                match fromSliceReceiver.try_recv() {
+                    Err(TryRecvError::Disconnected) => {
+                        return Err(LedwallError::LedwallCustomError);
+                    }
+                    Err(TryRecvError::Empty) => (),
+                    Ok(ControlerMessage::Terminate) => {
+                        return Ok(());
+                    }
+                    _ => (),
+                }
+
+                let result = frameIdentifierCondVar
+                    .wait_timeout(frameIdentifier, Duration::from_secs(2))
                     .toLedwallResult()?;
+
+                frameIdentifier = result.0
             }
 
             // PROFILING: This is for profiling and should be included only in debug build
