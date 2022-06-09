@@ -1,5 +1,5 @@
 <div id="top"></div>
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/corentinguilloteau/ledwall-rust?display_name=tag&include_prereleases)
+[![release](https://img.shields.io/github/v/release/corentinguilloteau/ledwall-rust.svg?display_name=tag&include_prereleases)](https://img.shields.io/github/v/release/corentinguilloteau/ledwall-rust)
 
 <h3 align="center">TSM Ledwall Controler</h3>
 
