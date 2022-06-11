@@ -42,3 +42,19 @@ export default function useRemoteState<T>(key: string): [T | null, RPCStatus] {
 
 	return [state, stateStatus];
 }
+
+export function useReceiveRemoteData(key: string, onReceive: (payload: any) => void) {
+	useEffect(() => {
+		let unsub = listen(key, (event) => {
+			if (event.event === key) {
+				onReceive(event.payload);
+			}
+		});
+
+		return () => {
+			unsub.then((fn) => {
+				fn();
+			});
+		};
+	}, []);
+}

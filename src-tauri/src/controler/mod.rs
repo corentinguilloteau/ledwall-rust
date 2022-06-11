@@ -9,7 +9,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::api::{ledwall_status_holder::LedwallError, slice::SliceData};
+use crate::api::{
+    ledwall_status_holder::LedwallError, notification::Notification, slice::SliceData,
+};
 use cxx::let_cxx_string;
 use spout_rust::ffi::{self as spoutlib, SpoutDXAdapter};
 
@@ -31,34 +33,15 @@ struct TaskHolder {
     taskChannel: Sender<ControlerMessage>,
 }
 
-trait TerminateThread<R> {
-    fn unwrap_or_terminate(
-        self,
-        interThreadSender: Sender<ControlerMessage>,
-    ) -> Result<R, LedwallError>;
-}
-
-impl<R, E> TerminateThread<R> for Result<R, E> {
-    fn unwrap_or_terminate(
-        self,
-        interThreadSender: Sender<ControlerMessage>,
-    ) -> Result<R, LedwallError> {
-        match self {
-            Ok(a) => return Ok(a),
-            Err(_) => return Err(LedwallError::LedwallCustomError),
-        }
-    }
-}
-
 pub trait ToLedwallResult<R> {
-    fn toLedwallResult(self) -> Result<R, LedwallError>;
+    fn toLedwallResult(self, error: LedwallError) -> Result<R, LedwallError>;
 }
 
 impl<R, E> ToLedwallResult<R> for Result<R, E> {
-    fn toLedwallResult(self) -> Result<R, LedwallError> {
+    fn toLedwallResult(self, error: LedwallError) -> Result<R, LedwallError> {
         match self {
             Ok(a) => return Ok(a),
-            Err(_) => return Err(LedwallError::LedwallCustomError),
+            Err(_) => return Err(error),
         }
     }
 }
@@ -100,6 +83,7 @@ impl FrameIdentifier {
 
 pub fn ledwallRunner(
     receiver: Receiver<ControlerMessage>,
+    notificationSender: Sender<Notification>,
     slices: Vec<SliceData>,
     commandSocket: UdpSocket,
 ) {
@@ -115,11 +99,28 @@ pub fn ledwallRunner(
 
         let taskToLocalSenderClone = taskToLocalSender.clone();
         let localSlice = slice.clone();
-        let task = thread::spawn(move || match sliceRunner(localToTaskReceiver, localSlice) {
-            Ok(_) => (),
-            Err(_) => {
-                let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
+        let notificationSenderCopy = notificationSender.clone();
+        let task = thread::spawn(move || {
+            let name = localSlice.getSpoutName().clone();
+
+            match sliceRunner(
+                localToTaskReceiver,
+                localSlice,
+                notificationSenderCopy.clone(),
+            ) {
+                Ok(_) => (),
+                Err(_) => {
+                    let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
+                }
             }
+
+            let _r = notificationSenderCopy.send(Notification {
+                title: "Information".into(),
+                message: "Thread terminé".into(),
+                kind: "info".into(),
+                consoleOnly: true,
+                origin: format!("Slice {} thread", name),
+            });
         });
 
         let taskHolder = TaskHolder {
@@ -143,6 +144,13 @@ pub fn ledwallRunner(
         // Here we look at a potential incoming message from the parent thread
         match receiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Sender corrupted, stopping the sender.".into(),
+                    kind: "error".into(),
+                    consoleOnly: false,
+                    origin: "ledwall thread".into(),
+                });
                 terminateSliceRunners(tasks);
                 return;
             }
@@ -183,14 +191,26 @@ pub fn ledwallRunner(
         if let Some(remaining) = wait_time.checked_sub(runtime) {
             sleep(remaining);
         } else {
-            eprintln!("Main clock drift");
+            let _r = notificationSender.send(Notification {
+                title: "Avertissement".into(),
+                message: "Décalage détecté dans l'horloge globale, le nombre de FPS est peut-être trop élevé".into(),
+                kind: "warning".into(),
+                consoleOnly: true,
+                origin: "ledwall thread".into(),
+            });
         }
 
         // We then send a the new frame command
         // It is delayed by 2 frame to accomodate jitter
         if let Some(fId) = frameId.getCommandFrameIdentifier() {
-            if let Err(e) = commandSocket.send(&[fId]) {
-                println!("{}", e);
+            if let Err(_) = commandSocket.send(&[fId]) {
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Erreur lors de l'envoie de la trame de synchronisation UDP.".into(),
+                    kind: "error".into(),
+                    consoleOnly: true,
+                    origin: "ledwall thread".into(),
+                });
             }
         }
 
@@ -222,20 +242,51 @@ struct SlabRunner {
     sliceChannel: Sender<ControlerMessage>,
 }
 
-fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(), LedwallError> {
+fn sliceRunner(
+    recv: Receiver<ControlerMessage>,
+    slice: SliceData,
+    notificationSender: Sender<Notification>,
+) -> Result<(), LedwallError> {
     // Create the adapter to get the frames
     let mut spout = spoutlib::new_spout_adapter();
 
     let_cxx_string!(spout_name = slice.getSpoutName());
 
-    // We create the adapter
-    if !SpoutDXAdapter::AdapterOpenDirectX11(
-        spout.as_mut().ok_or(LedwallError::LedwallCustomError)?,
-    ) {
-        println!("Unable to open DX11, aborting !");
-        return Err(LedwallError::LedwallCustomError);
+    let spout = spout.as_mut().ok_or(LedwallError::LedwallPoisonError);
+
+    let mut localSpout;
+
+    match spout {
+        Err(e) => {
+            let _r = notificationSender.send(Notification {
+                title: "Avertissement".into(),
+                message: format!(
+                    "Impossible de se connecter au spout '{}'",
+                    slice.getSpoutName()
+                ),
+                kind: "warning".into(),
+                consoleOnly: true,
+                origin: "ledwall thread".into(),
+            });
+
+            return Err(e);
+        }
+        Ok(lS) => localSpout = lS,
     }
-    SpoutDXAdapter::AdapterSetReceiverName(spout.as_mut().unwrap(), spout_name.as_mut());
+
+    // We create the adapter
+    if !SpoutDXAdapter::AdapterOpenDirectX11(localSpout.as_mut()) {
+        let _r = notificationSender.send(Notification {
+            title: "Erreur".into(),
+            message: "Impossible d'ouvrir DirectX 11. Arret du sender.".into(),
+            kind: "error".into(),
+            consoleOnly: false,
+            origin: format!("Slice {}", slice.getSpoutName()),
+        });
+        eprintln!("Unable to open DX11, aborting !");
+        return Err(LedwallError::LedwallDX11);
+    }
+    SpoutDXAdapter::AdapterSetReceiverName(localSpout.as_mut(), spout_name.as_mut());
 
     // We initialize a new empty image holder
     let secureImageHolder = Arc::new(RwLock::new(ImageHolder {
@@ -260,6 +311,7 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
         frameIdentifier.clone(),
         secureImageHolder.clone(),
         slabToLocalSender,
+        notificationSender.clone(),
     );
 
     let (frameIdentifierMutex, frameIdentifierCVar) = &*frameIdentifier;
@@ -292,36 +344,53 @@ fn sliceRunner(recv: Receiver<ControlerMessage>, slice: SliceData) -> Result<(),
             _ => (),
         }
 
-        let mut imageHolder = secureImageHolder.write().toLedwallResult()?;
+        let mut imageHolder = secureImageHolder
+            .write()
+            .toLedwallResult(LedwallError::LedwallPoisonError)?;
         let width = imageHolder.image_size.width;
         let height = imageHolder.image_size.height;
 
         // We try to receive an image from the Spout adapter
         if SpoutDXAdapter::AdapterReceiveImage(
-            spout.as_mut().unwrap(),
+            localSpout.as_mut(),
             &mut imageHolder.image[..],
             width,
             height,
             false,
             false,
         ) {
-            if SpoutDXAdapter::AdapterIsUpdated(spout.as_mut().unwrap()) {
+            if SpoutDXAdapter::AdapterIsUpdated(localSpout.as_mut()) {
                 // If the adapter has been updated sinc the last time we fetched the frame, we reset the buffer and
                 // update the data structure
-                let imageHeight = SpoutDXAdapter::AdapterGetSenderHeight(spout.as_mut().unwrap());
-                let imageWidth = SpoutDXAdapter::AdapterGetSenderWidth(spout.as_mut().unwrap());
+                let imageHeight = SpoutDXAdapter::AdapterGetSenderHeight(localSpout.as_mut());
+                let imageWidth = SpoutDXAdapter::AdapterGetSenderWidth(localSpout.as_mut());
 
                 let imageSize = (imageHeight * imageWidth * 3) as usize;
 
                 imageHolder.image = vec![0; imageSize];
                 imageHolder.image_size.height = imageHeight;
                 imageHolder.image_size.width = imageWidth;
+
+                let _r = notificationSender.send(Notification {
+                    title: "Information".into(),
+                    message: format!(
+                        "La slice {} a été resize aux dimensions WxH:{}x{}",
+                        slice.getSpoutName(),
+                        slice.getWidth(),
+                        slice.getHeight()
+                    ),
+                    kind: "info".into(),
+                    consoleOnly: true,
+                    origin: format!("Slice {}", slice.getSpoutName()),
+                });
             } else {
                 // Else, we can immedialty release the image holder to make it available to child threads
                 drop(imageHolder);
 
                 // We update the frame identifier
-                let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
+                let mut frameIdentifier = frameIdentifierMutex
+                    .lock()
+                    .toLedwallResult(LedwallError::LedwallPoisonError)?;
                 *frameIdentifier = Some(localFrameIdentifier);
 
                 // Notify slab runners a new frame is available and should be processed
@@ -356,6 +425,7 @@ fn initSlice(
     frameCountCondVar: Arc<(Mutex<Option<u8>>, Condvar)>,
     secureImageHolder: Arc<RwLock<ImageHolder>>,
     slabToLocalSender: Sender<ControlerMessage>,
+    notificationSender: Sender<Notification>,
 ) {
     let slabs = slice.getSlab();
 
@@ -377,14 +447,26 @@ fn initSlice(
                 let secureImageHolderClone = secureImageHolder.clone();
                 let slabToLocalSenderClone = slabToLocalSender.clone();
 
+                let notificationSenderCopy = notificationSender.clone();
+
                 // For each slab, we create the slab runner thread
                 let thread = thread::spawn(move || {
+                    let id = slabInformation.id;
                     let _ = slabRunner(
                         slabInformation,
                         frameCountCondVarClone,
                         secureImageHolderClone,
                         localToSlabReceiver,
+                        notificationSenderCopy.clone(),
                     );
+
+                    let _r = notificationSenderCopy.send(Notification {
+                        title: "Information".into(),
+                        message: "Thread terminé".into(),
+                        kind: "info".into(),
+                        consoleOnly: true,
+                        origin: format!("Slab {} thread", id),
+                    });
 
                     let _ = slabToLocalSenderClone.send(ControlerMessage::Terminate);
                 });
@@ -398,7 +480,10 @@ fn initSlice(
     }
 }
 
-fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError> {
+fn getTcpConnection(
+    slabConnection: &SlabData,
+    notificationSender: Sender<Notification>,
+) -> Result<TcpStream, LedwallError> {
     if let Some(endip) = u8::try_from(slabConnection.id).ok() {
         let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, endip + 50)), 9999);
         let connectionResult = TcpStream::connect_timeout(&socket, Duration::from_secs(10));
@@ -407,7 +492,14 @@ fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError
         match connectionResult {
             Err(_) => {
                 println!("Cannot connect to slab {}", slabConnection.id);
-                return Err(LedwallError::LedwallCustomError);
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Impossible de se connecter via TCP".into(),
+                    kind: "error".into(),
+                    consoleOnly: false,
+                    origin: format!("Slab {}", slabConnection.id),
+                });
+                return Err(LedwallError::SlabTCP(slabConnection.id));
             }
             Ok(c) => connection = c,
         }
@@ -415,12 +507,19 @@ fn getTcpConnection(slabConnection: &SlabData) -> Result<TcpStream, LedwallError
         match connection.set_write_timeout(Some(Duration::from_secs(5))) {
             Err(_) => {
                 eprintln!("Cannot set timeout for slab {}", slabConnection.id);
-                return Err(LedwallError::LedwallCustomError);
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Impossible de se connecter via TCP: Timeout".into(),
+                    kind: "error".into(),
+                    consoleOnly: false,
+                    origin: format!("Slab {}", slabConnection.id),
+                });
+                return Err(LedwallError::SlabTCPTimeout(slabConnection.id));
             }
             Ok(_) => return Ok(connection),
         }
     } else {
-        return Err(LedwallError::LedwallFatalError);
+        return Err(LedwallError::LedwallPoisonError);
     }
 }
 
@@ -429,6 +528,7 @@ fn slabRunner(
     frameIdentifierPair: Arc<(Mutex<Option<u8>>, Condvar)>,
     frameHolder: Arc<RwLock<ImageHolder>>,
     fromSliceReceiver: Receiver<ControlerMessage>,
+    notificationSender: Sender<Notification>,
 ) -> Result<(), LedwallError> {
     let (frameIdentifierMutex, frameIdentifierCondVar) = &*frameIdentifierPair;
 
@@ -449,7 +549,7 @@ fn slabRunner(
     loop {
         match fromSliceReceiver.try_recv() {
             Err(TryRecvError::Disconnected) => {
-                return Err(LedwallError::LedwallCustomError);
+                return Err(LedwallError::LedwallPoisonError);
             }
             Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
@@ -459,15 +559,25 @@ fn slabRunner(
         }
 
         let mut tcpConnection;
-        match getTcpConnection(&slabConnection) {
+        match getTcpConnection(&slabConnection, notificationSender.clone()) {
             Ok(c) => tcpConnection = c,
-            Err(LedwallError::LedwallFatalError) => return Err(LedwallError::LedwallFatalError),
+            Err(LedwallError::LedwallPoisonError) => return Err(LedwallError::LedwallPoisonError),
             Err(_) => continue,
         }
 
+        let _r = notificationSender.send(Notification {
+            title: "Succès".into(),
+            message: "Dalle connectée.".into(),
+            kind: "success".into(),
+            consoleOnly: true,
+            origin: format!("Slab {}", slabConnection.id),
+        });
+
         // This loop sends the image to the slab periodically
         loop {
-            let mut frameIdentifier = frameIdentifierMutex.lock().toLedwallResult()?;
+            let mut frameIdentifier = frameIdentifierMutex
+                .lock()
+                .toLedwallResult(LedwallError::LedwallPoisonError)?;
 
             // We wait here until the parent thread finish fetching the new frame and notifies the slab threads the new frame is available to be sent
             while *frameIdentifier == previousFrameId {
@@ -476,7 +586,7 @@ fn slabRunner(
                 // a termination
                 match fromSliceReceiver.try_recv() {
                     Err(TryRecvError::Disconnected) => {
-                        return Err(LedwallError::LedwallCustomError);
+                        return Err(LedwallError::LedwallPoisonError);
                     }
                     Err(TryRecvError::Empty) => (),
                     Ok(ControlerMessage::Terminate) => {
@@ -487,7 +597,7 @@ fn slabRunner(
 
                 let result = frameIdentifierCondVar
                     .wait_timeout(frameIdentifier, Duration::from_secs(2))
-                    .toLedwallResult()?;
+                    .toLedwallResult(LedwallError::FrameSyncTimeout(slabConnection.id))?;
 
                 frameIdentifier = result.0
             }
@@ -508,7 +618,9 @@ fn slabRunner(
             }
 
             // Get the frame data. This uses a read/write mutex so that all slabRunners can access the frame at the same time
-            let frame = frameHolder.read().toLedwallResult()?;
+            let frame = frameHolder
+                .read()
+                .toLedwallResult(LedwallError::LedwallPoisonError)?;
 
             // We copy the subframe of this slab to the buffer
             populateFrameBuffer(&mut buffer, &*frame, &slabConnection, realFrameIdentifier);
@@ -516,11 +628,25 @@ fn slabRunner(
             // We write the buffer to the socket to the slab using the previously opened socket
             // If it fails, we exit the inner loop to create a new TCP socket to the slab
             if let Err(_) = tcpConnection.write_all(&buffer[..]) {
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Impossible d'écrire le buffer TCP".into(),
+                    kind: "error".into(),
+                    consoleOnly: true,
+                    origin: format!("Slab {}", slabConnection.id),
+                });
                 break;
             }
             // We send the buffer to the slab using the previously opened socket
             // If it fails, we exit the inner loop to create a new TCP socket to the slab
             if let Err(_) = tcpConnection.flush() {
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: "Impossible de flush le buffer TCP".into(),
+                    kind: "error".into(),
+                    consoleOnly: true,
+                    origin: format!("Slab {}", slabConnection.id),
+                });
                 break;
             }
 

@@ -10,11 +10,13 @@ use std::{
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 use tauri::Window;
+use thiserror::Error;
 
 use crate::controler::{ledwallRunner, ControlerMessage, ToLedwallResult};
 
 use super::{
     ledwallcontrol::{LedwallControl, LedwallControlStatusEnum},
+    notification::Notification,
     slice::SliceData,
 };
 
@@ -24,18 +26,38 @@ pub struct LedwallStatusHolder {
     thread: Option<JoinHandle<()>>,
     messageSender: Option<Sender<ControlerMessage>>,
     window: Option<Arc<Window>>,
+    notificationSender: Sender<Notification>,
 }
 
-#[derive(From, Serialize)]
+#[derive(From, Serialize, Error, Debug)]
 pub enum LedwallError {
     #[serde(skip_serializing)]
+    #[error("Une erreur réseau a été détectée.")]
     LedwallIOError(std::io::Error),
+    #[error("The core has been corrupted, please restart the app.")]
     #[from(ignore)]
     LedwallPoisonError,
     #[from(ignore)]
-    LedwallCustomError,
+    #[error("Les images sont déjà en cours d'affichage.")]
+    LedwallNotStopped,
     #[from(ignore)]
-    LedwallFatalError,
+    #[error("Impossible d'envoyer une commande tant que le mur de led est live.")]
+    NoCommandWhileRunning,
+    #[from(ignore)]
+    #[error("Le mur de led est déjà arrêté.")]
+    LedwallNotRunning,
+    #[from(ignore)]
+    #[error("Erreur liée à DX11.")]
+    LedwallDX11,
+    #[from(ignore)]
+    #[error("Erreur de connection TCP à la dalle {0}.")]
+    SlabTCP(u32),
+    #[from(ignore)]
+    #[error("Erreur de connection TCP à la dalle {0}.")]
+    SlabTCPTimeout(u32),
+    #[from(ignore)]
+    #[error("Delai d'attente de la synchronisation des frame dépassé.")]
+    FrameSyncTimeout(u32),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -52,7 +74,7 @@ pub enum LedwallCommand {
 pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;
 
 impl LedwallStatusHolder {
-    pub fn new() -> Self {
+    pub fn new(notificationSender: Sender<Notification>) -> Self {
         LedwallStatusHolder {
             status: Arc::new(RwLock::new(LedwallControl {
                 status: LedwallControlStatusEnum::Stopped,
@@ -61,13 +83,18 @@ impl LedwallStatusHolder {
             thread: None,
             messageSender: None,
             window: None,
+            notificationSender: notificationSender,
         }
     }
 
-    pub fn getStatus(&self) -> Result<LedwallControl, ()> {
+    pub fn sendNotification(&self, notif: Notification) {
+        let _r = self.notificationSender.send(notif);
+    }
+
+    pub fn getStatus(&self) -> Result<LedwallControl, LedwallError> {
         match self.status.read() {
             Ok(res) => return Ok(*res),
-            Err(_) => return Err(()),
+            Err(_) => return Err(LedwallError::LedwallPoisonError),
         }
     }
 
@@ -80,7 +107,7 @@ impl LedwallStatusHolder {
         self.window = Some(Arc::new(window));
 
         match statusResult {
-            Err(_) => return Err(LedwallError::LedwallCustomError),
+            Err(_) => return Err(LedwallError::LedwallPoisonError),
             Ok(s) => status = s,
         }
 
@@ -100,7 +127,7 @@ impl LedwallStatusHolder {
 
             return Ok(());
         } else {
-            return Err(LedwallError::LedwallCustomError);
+            return Err(LedwallError::LedwallNotStopped);
         }
     }
 
@@ -120,9 +147,10 @@ impl LedwallStatusHolder {
         LedwallStatusHolder::sendCommand(LedwallCommand::Live, socket.try_clone()?)?;
 
         let socketClone = socket.try_clone()?;
+        let notificationSenderClone = self.notificationSender.clone();
 
         self.thread = Some(thread::spawn(move || {
-            ledwallRunner(receiver, slices, socketClone);
+            ledwallRunner(receiver, notificationSenderClone, slices, socketClone);
 
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
@@ -136,7 +164,10 @@ impl LedwallStatusHolder {
     }
 
     pub fn command(&self, command: LedwallCommand) -> Result<(), LedwallError> {
-        let status = self.status.write().toLedwallResult()?;
+        let status = self
+            .status
+            .write()
+            .toLedwallResult(LedwallError::LedwallPoisonError)?;
 
         if status.status == LedwallControlStatusEnum::Stopped {
             let socket = UdpSocket::bind(("0.0.0.0", 0))?;
@@ -145,7 +176,7 @@ impl LedwallStatusHolder {
 
             return LedwallStatusHolder::sendCommand(command, socket);
         } else {
-            return Err(LedwallError::LedwallCustomError);
+            return Err(LedwallError::NoCommandWhileRunning);
         }
     }
 
@@ -170,25 +201,35 @@ impl LedwallStatusHolder {
     }
 
     pub fn stop(&mut self) -> Result<(), LedwallError> {
-        let status = self.status.read().toLedwallResult()?;
+        let status = self
+            .status
+            .read()
+            .toLedwallResult(LedwallError::LedwallPoisonError)?;
 
         if status.status == LedwallControlStatusEnum::Displaying {
             drop(status);
             if let Some(sender) = &self.messageSender {
-                sender.send(ControlerMessage::Terminate).toLedwallResult()?;
+                sender
+                    .send(ControlerMessage::Terminate)
+                    .toLedwallResult(LedwallError::LedwallPoisonError)?;
 
                 if let Some(thread) = self.thread.take() {
-                    thread.join().toLedwallResult()?;
+                    thread
+                        .join()
+                        .toLedwallResult(LedwallError::LedwallPoisonError)?;
                 }
                 self.thread = None;
                 self.messageSender = None;
-                let mut status = self.status.write().toLedwallResult()?;
+                let mut status = self
+                    .status
+                    .write()
+                    .toLedwallResult(LedwallError::LedwallPoisonError)?;
                 status.status = LedwallControlStatusEnum::Stopped;
             }
 
             return Ok(());
         } else {
-            return Err(LedwallError::LedwallCustomError);
+            return Err(LedwallError::LedwallNotRunning);
         }
     }
 }

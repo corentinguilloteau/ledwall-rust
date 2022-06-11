@@ -25,4 +25,16 @@ impl SliceData {
     pub fn getSlabHeight(&self) -> u32 {
         return self.slabHeight;
     }
+
+    pub fn getHeight(&self) -> usize {
+        if self.slabs.len() == 0 {
+            return 0;
+        } else {
+            return self.slabs[0].len();
+        }
+    }
+
+    pub fn getWidth(&self) -> usize {
+        return self.slabs.len();
+    }
 }

@@ -6,11 +6,13 @@ use tauri::Window;
 use self::{
     ledwall_status_holder::{LedwallCommand, LedwallError},
     ledwallcontrol::LedwallControl,
+    notification::Notification,
     slice::SliceData,
 };
 
 pub mod ledwall_status_holder;
 pub mod ledwallcontrol;
+pub mod notification;
 pub mod slice;
 
 use ledwall_status_holder::SafeLedwallStatusHolder;
@@ -51,10 +53,25 @@ pub async fn startFrameSender(
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(LedwallError::LedwallCustomError),
+        Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
 
-    return holder.run(slices, window);
+    let result = holder.run(slices, window);
+
+    holder.sendNotification(Notification {
+        title: "test".into(),
+        message: "test message".into(),
+        kind: "error".into(),
+        consoleOnly: false,
+        origin: "Command Sender".into(),
+    });
+
+    match result {
+        Ok(r) => return Ok(r),
+        Err(r) => {
+            return Err(r);
+        }
+    }
 }
 
 #[tauri::command]
@@ -67,7 +84,7 @@ pub async fn stopFrameSender(
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(LedwallError::LedwallCustomError),
+        Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
 
     return holder.stop();
@@ -76,12 +93,12 @@ pub async fn stopFrameSender(
 #[tauri::command]
 pub fn fetch_status(
     state: tauri::State<'_, SafeLedwallStatusHolder>,
-) -> Result<LedwallControl, ()> {
+) -> Result<LedwallControl, LedwallError> {
     let holder;
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(()),
+        Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
 
     return holder.getStatus();
@@ -96,7 +113,7 @@ pub fn testSender(
 
     match state.lock() {
         Ok(state) => holder = state,
-        Err(_) => return Err(LedwallError::LedwallCustomError),
+        Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
 
     return holder.command(command);

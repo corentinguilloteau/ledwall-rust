@@ -7,6 +7,7 @@ import { BrowserRouter } from "react-router-dom";
 import { store } from "./data/store/store";
 import { Provider } from "react-redux";
 import { QueryClient, QueryClientProvider } from "react-query";
+import { NotificationsProvider } from "@mantine/notifications";
 
 const queryClient = new QueryClient();
 
@@ -14,9 +15,11 @@ ReactDOM.render(
 	<React.StrictMode>
 		<Provider store={store}>
 			<QueryClientProvider client={queryClient}>
-				<BrowserRouter>
-					<AppThemeHolder />
-				</BrowserRouter>
+				<NotificationsProvider>
+					<BrowserRouter>
+						<AppThemeHolder />
+					</BrowserRouter>
+				</NotificationsProvider>
 			</QueryClientProvider>
 		</Provider>
 	</React.StrictMode>,
