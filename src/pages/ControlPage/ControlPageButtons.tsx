@@ -79,11 +79,11 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
-	let [testStatus, , , testCommand] = useRPC(invoke, "testSender");
+	let [testStatus, , , testCommand] = useRPC(invoke, true, "testSender");
 
 	let [startStopButton, startStopButtonEnabled, testButtonEnabled] = getState(props.status);
-	let [startStatus, , , sendStartCommand] = useRPC(invoke, "startFrameSender");
-	let [stopStatus, , , sendStopCommand] = useRPC(invoke, "stopFrameSender");
+	let [startStatus, , , sendStartCommand] = useRPC(invoke, true, "startFrameSender");
+	let [stopStatus, , , sendStopCommand] = useRPC(invoke, true, "stopFrameSender");
 	let OnOffButtonClick: { [key in OnOff]: () => void } = {
 		on: () => {
 			sendStartCommand({ slices: slices });

@@ -6,7 +6,6 @@
 mod api;
 mod controler;
 use api::ledwall_status_holder::LedwallStatusHolder;
-use spout_rust::ffi as spoutlib;
 use std::{
     sync::{mpsc::channel, Arc, Mutex},
     thread, vec,
@@ -34,8 +33,6 @@ fn main() {
 
     let (notificationSender, notificationReceiver) = channel();
 
-    let spoutSafeImageHolder = Arc::clone(&safeImageHolder);
-
     let safeLedwallStatusHolder =
         Arc::new(Mutex::new(LedwallStatusHolder::new(notificationSender)));
 
@@ -47,8 +44,6 @@ fn main() {
                 let notification = notificationReceiver.recv();
 
                 let notif;
-
-                println!("notif");
 
                 match notification {
                     Ok(n) => notif = n,

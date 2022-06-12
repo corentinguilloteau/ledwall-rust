@@ -1,10 +1,9 @@
 import { Button } from "@mantine/core";
 import { dialog, fs } from "@tauri-apps/api";
-import React, { Dispatch } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { Dispatch } from "react";
+import { useDispatch } from "react-redux";
 import { Folder, HandStop } from "tabler-icons-react";
 import { loadSlabs } from "../../../data/store/slicesSlice";
-import { RootState } from "../../../data/store/store";
 import Slice from "../../../data/types/Slice";
 import useRPC from "../../../hooks/useRPC";
 
@@ -30,7 +29,7 @@ async function loadConfig(dispatchFunction: Dispatch<any>) {
 }
 
 export default function LoadButton() {
-	let [loadStatus, , , loadCommand] = useRPC(loadConfig);
+	let [loadStatus, , , loadCommand] = useRPC(loadConfig, true);
 	const dispatch = useDispatch();
 
 	return (

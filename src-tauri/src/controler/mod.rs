@@ -494,7 +494,10 @@ fn getTcpConnection(
                 println!("Cannot connect to slab {}", slabConnection.id);
                 let _r = notificationSender.send(Notification {
                     title: "Erreur".into(),
-                    message: "Impossible de se connecter via TCP".into(),
+                    message: format!(
+                        "Impossible de se connecter via TCP à la dalle {} (IP: {})",
+                        slabConnection.id, socket
+                    ),
                     kind: "error".into(),
                     consoleOnly: false,
                     origin: format!("Slab {}", slabConnection.id),

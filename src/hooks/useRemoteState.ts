@@ -6,7 +6,7 @@ import useRPC, { RPCStatus } from "./useRPC";
 export default function useRemoteState<T>(key: string): [T | null, RPCStatus] {
 	let [state, setState] = useState(null as T | null);
 
-	let [stateStatus, , , handledCall] = useRPC<T>(invoke, "fetch_status");
+	let [stateStatus, , , handledCall] = useRPC<T>(invoke, true, "fetch_status");
 
 	useEffect(() => {
 		handledCall()

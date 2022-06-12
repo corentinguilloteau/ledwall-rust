@@ -21,7 +21,7 @@ async function saveConfig(config: Slice[]) {
 export default function SaveButton() {
 	const slices = useSelector((state: RootState) => state.slices.slices);
 
-	let [saveStatus, , , saveCommand] = useRPC(saveConfig);
+	let [saveStatus, , , saveCommand] = useRPC(saveConfig, true);
 
 	return (
 		<Button

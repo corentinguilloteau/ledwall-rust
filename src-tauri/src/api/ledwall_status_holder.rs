@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     net::UdpSocket,
     sync::{
         mpsc::{channel, Sender},
@@ -69,6 +70,19 @@ pub enum LedwallCommand {
     Reboot,
     Number,
     Version,
+}
+
+impl Display for LedwallCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            LedwallCommand::Live => write!(f, "live"),
+            LedwallCommand::Shutdown => write!(f, "shutdown"),
+            LedwallCommand::Restart => write!(f, "restart"),
+            LedwallCommand::Reboot => write!(f, "reboot"),
+            LedwallCommand::Number => write!(f, "show number"),
+            LedwallCommand::Version => write!(f, "show version"),
+        }
+    }
 }
 
 pub type SafeLedwallStatusHolder = Arc<Mutex<LedwallStatusHolder>>;

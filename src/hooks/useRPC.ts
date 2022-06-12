@@ -7,7 +7,7 @@ type RPCFunction<T> = (...args: any[]) => Promise<T>;
 // [status, response, error, call]
 type useRPCResult<T> = [RPCStatus, T | undefined, any, (...args: any[]) => Promise<T | undefined>];
 
-export default function useRPC<T>(userCall: RPCFunction<T>, ...args: any[]): useRPCResult<T> {
+export default function useRPC<T>(userCall: RPCFunction<T>, notifyError: boolean, ...args: any[]): useRPCResult<T> {
 	const [callState, setCallState] = useState("none" as RPCStatus);
 	const [response, setResponse] = useState(undefined as T | undefined);
 	const [error, setError] = useState(undefined as any);
@@ -27,6 +27,8 @@ export default function useRPC<T>(userCall: RPCFunction<T>, ...args: any[]): use
 			setCallState("error");
 			setResponse(undefined);
 			setError(e);
+
+			console.log(e);
 
 			throw e;
 		}

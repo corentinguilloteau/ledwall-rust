@@ -59,10 +59,10 @@ pub async fn startFrameSender(
     let result = holder.run(slices, window);
 
     holder.sendNotification(Notification {
-        title: "test".into(),
-        message: "test message".into(),
-        kind: "error".into(),
-        consoleOnly: false,
+        title: "".into(),
+        message: "Starting frame sender".into(),
+        kind: "info".into(),
+        consoleOnly: true,
         origin: "Command Sender".into(),
     });
 
@@ -80,12 +80,17 @@ pub async fn stopFrameSender(
 ) -> Result<(), LedwallError> {
     let mut holder;
 
-    println!("Stop call");
-
     match state.lock() {
         Ok(state) => holder = state,
         Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
+    holder.sendNotification(Notification {
+        title: "".into(),
+        message: "Stoping frame sender".into(),
+        kind: "info".into(),
+        consoleOnly: true,
+        origin: "Command Sender".into(),
+    });
 
     return holder.stop();
 }
@@ -115,6 +120,13 @@ pub fn testSender(
         Ok(state) => holder = state,
         Err(_) => return Err(LedwallError::LedwallPoisonError),
     }
+    holder.sendNotification(Notification {
+        title: "".into(),
+        message: format!("Sending {} command", command),
+        kind: "info".into(),
+        consoleOnly: true,
+        origin: "Command Sender".into(),
+    });
 
     return holder.command(command);
 }
