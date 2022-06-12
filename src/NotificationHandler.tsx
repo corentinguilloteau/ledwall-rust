@@ -14,7 +14,11 @@ export default function NotificationHandler(props: NotificationHandlerProps) {
 
 	useReceiveRemoteData("backend-notification", (p) => {
 		let payload = p as NotificationPayload;
-		payload.timestamp = new Date();
+		console.log(payload);
+
+		if (payload.kind === "status") {
+			return;
+		}
 
 		if (payload.consoleOnly === false) {
 			let notification = generateNotification(payload);

@@ -131,11 +131,15 @@ pub fn ledwallRunner(
         tasks.push(taskHolder);
     }
 
-    // 60 fps, this is the interval beteen each frame
-    let wait_time = Duration::from_millis(17);
+    // 60 fps, this is the interval between each frame
+    // i.e 16ms
+    let wait_time = Duration::from_millis(16);
     // This is the frame identifier
     let mut frameId = FrameIdentifier::new();
     let mut start = Instant::now();
+
+    let mut frameCounter = 0;
+    let mut durationCounter = Duration::from_millis(0);
 
     // This loop checks that no thread is asking for termination
     // Then it increments the frame identifer and notify all slice runners they should process a new frame
@@ -188,8 +192,15 @@ pub fn ledwallRunner(
 
         // Then we can wait for the end of the period
         let runtime = start.elapsed();
+        println!("before {:?}", runtime);
+
         if let Some(remaining) = wait_time.checked_sub(runtime) {
-            sleep(remaining);
+            // TODO: Remove busy waiting and optimize this.
+            // Using sleep tends to add an extra 15ms to the waiting time which is a problem.
+            // This is why a busy wait is used
+            // Figuring out why may be the solution here
+            while wait_time.checked_sub(start.elapsed()).is_some() {}
+            // We also need to add a sync with all slab senders
         } else {
             let _r = notificationSender.send(Notification {
                 title: "Avertissement".into(),
@@ -199,6 +210,11 @@ pub fn ledwallRunner(
                 origin: "ledwall thread".into(),
             });
         }
+
+        let runtime = start.elapsed();
+        println!("after {:?}", runtime);
+
+        start = Instant::now();
 
         // We then send a the new frame command
         // It is delayed by 2 frame to accomodate jitter
@@ -214,7 +230,23 @@ pub fn ledwallRunner(
             }
         }
 
-        start = Instant::now();
+        if durationCounter.as_secs() >= 1 {
+            let measuredFps = frameCounter * 1000 / durationCounter.as_millis();
+
+            let _r = notificationSender.send(Notification {
+                title: "fps".into(),
+                message: measuredFps.to_string(),
+                kind: "status".into(),
+                consoleOnly: true,
+                origin: "ledwall thread".into(),
+            });
+
+            frameCounter = 0;
+            durationCounter = Duration::from_millis(0);
+        }
+
+        frameCounter += 1;
+        durationCounter += runtime;
     }
 }
 
