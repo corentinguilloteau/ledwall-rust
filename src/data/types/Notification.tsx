@@ -7,6 +7,11 @@ export interface NotificationPayload {
 	kind: string;
 	consoleOnly: boolean;
 	origin: string;
+	timestamp?: Date;
+}
+
+export interface NotificationsState {
+	notifications: NotificationPayload[];
 }
 
 export function generateNotification(payload: NotificationPayload) {
@@ -14,7 +19,6 @@ export function generateNotification(payload: NotificationPayload) {
 		title: `${payload.title}`,
 		message: payload.message,
 		color: "",
-		autoClose: 2000,
 		icon: <InfoCircle size={18} />,
 		styles: (theme: MantineTheme) => ({
 			root: {

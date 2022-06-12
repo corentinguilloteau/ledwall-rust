@@ -78,7 +78,7 @@ class Navbar extends React.Component {
 						Pour TSM
 					</Text>
 					<Text size="sm" align="center" color="dimmed">
-						Version <b>0.1-rc1</b>
+						Version <b>0.2</b>
 					</Text>
 				</MantineNavbar.Section>
 			</MantineNavbar>

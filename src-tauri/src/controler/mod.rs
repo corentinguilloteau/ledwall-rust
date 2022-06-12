@@ -259,12 +259,12 @@ fn sliceRunner(
     match spout {
         Err(e) => {
             let _r = notificationSender.send(Notification {
-                title: "Avertissement".into(),
+                title: "Erreur".into(),
                 message: format!(
                     "Impossible de se connecter au spout '{}'",
                     slice.getSpoutName()
                 ),
-                kind: "warning".into(),
+                kind: "error".into(),
                 consoleOnly: true,
                 origin: "ledwall thread".into(),
             });
@@ -317,6 +317,9 @@ fn sliceRunner(
     let (frameIdentifierMutex, frameIdentifierCVar) = &*frameIdentifier;
     let mut localFrameIdentifier;
 
+    let mut receiveErrorCount = 0;
+    let mut errorDetected = false;
+
     loop {
         // We wait for the synchronization message from the parent thread
         let message = recv.recv();
@@ -359,6 +362,17 @@ fn sliceRunner(
             false,
             false,
         ) {
+            if errorDetected {
+                errorDetected = false;
+                receiveErrorCount = 0;
+                let _r = notificationSender.send(Notification {
+                    title: "Succès".into(),
+                    message: format!("Le sender spout {} a été reconnecté.", slice.getSpoutName(),),
+                    kind: "success".into(),
+                    consoleOnly: false,
+                    origin: format!("Slice {}", slice.getSpoutName()),
+                });
+            }
             if SpoutDXAdapter::AdapterIsUpdated(localSpout.as_mut()) {
                 // If the adapter has been updated sinc the last time we fetched the frame, we reset the buffer and
                 // update the data structure
@@ -396,6 +410,19 @@ fn sliceRunner(
                 // Notify slab runners a new frame is available and should be processed
                 frameIdentifierCVar.notify_all();
             }
+        } else {
+            if receiveErrorCount == 0 {
+                let _r = notificationSender.send(Notification {
+                    title: "Erreur".into(),
+                    message: format!("Impossible de recevoir une image depuis le sender spout {}. Verifiez la connexion.", slice.getSpoutName()),
+                    kind: "error".into(),
+                    consoleOnly: false,
+                    origin: format!("Slice {}", slice.getSpoutName()),
+                });
+            }
+
+            receiveErrorCount = (receiveErrorCount + 1) % (60 * 5);
+            errorDetected = true;
         }
 
         // PROFILING: This is for profiling and should be included only in debug build

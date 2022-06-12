@@ -15,7 +15,7 @@ ReactDOM.render(
 	<React.StrictMode>
 		<Provider store={store}>
 			<QueryClientProvider client={queryClient}>
-				<NotificationsProvider>
+				<NotificationsProvider autoClose={5000}>
 					<BrowserRouter>
 						<AppThemeHolder />
 					</BrowserRouter>
