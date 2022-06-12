@@ -15,7 +15,6 @@ function MainApp() {
 
 	useReceiveRemoteData("backend-notification", (p) => {
 		let payload = p as NotificationPayload;
-		payload.timestamp = new Date();
 
 		if (payload.kind === "status" && payload.title === "fps") {
 			setFpsCount(parseInt(payload.message));
