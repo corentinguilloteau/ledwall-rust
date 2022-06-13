@@ -12,6 +12,15 @@ use std::{
 };
 use tauri::Manager;
 
+#[tauri::command]
+async fn close_splashscreen(window: tauri::Window) {
+    // Close splashscreen
+    if let Some(splashscreen) = window.get_window("splashscreen") {
+        splashscreen.close().unwrap();
+    }
+    // Show main window
+    window.get_window("main").unwrap().show().unwrap();
+}
 struct ImageSize {
     height: u32,
     width: u32,
@@ -64,7 +73,8 @@ fn main() {
             api::stopFrameSender,
             api::startFrameSender,
             api::fetch_status,
-            api::testSender
+            api::testSender,
+            close_splashscreen
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
