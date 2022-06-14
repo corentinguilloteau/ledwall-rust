@@ -101,16 +101,13 @@ pub fn ledwallRunner(
         let localSlice = slice.clone();
         let notificationSenderCopy = notificationSender.clone();
         let task = thread::spawn(move || {
-            match sliceRunner(
+            let _ = sliceRunner(
                 localToTaskReceiver,
                 localSlice,
                 notificationSenderCopy.clone(),
-            ) {
-                Ok(_) => (),
-                Err(_) => {
-                    let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
-                }
-            }
+            );
+
+            let _ = taskToLocalSenderClone.send(ControlerMessage::Terminate);
 
             let _r = notificationSenderCopy.send(Notification {
                 title: "Information".into(),

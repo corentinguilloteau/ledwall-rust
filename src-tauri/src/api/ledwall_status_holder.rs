@@ -166,6 +166,8 @@ impl LedwallStatusHolder {
         self.thread = Some(thread::spawn(move || {
             ledwallRunner(receiver, notificationSenderClone, slices, socketClone);
 
+            println!("returned");
+
             if let Ok(mut status) = statusHandle.write() {
                 status.status = LedwallControlStatusEnum::Stopped;
                 if let Some(window) = windowHandle {
