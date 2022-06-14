@@ -2,7 +2,7 @@ use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket},
     sync::{
-        mpsc::{channel, Receiver, Sender, TryRecvError},
+        mpsc::{channel, sync_channel, Receiver, Sender, SyncSender, TryRecvError},
         Arc, Condvar, Mutex, RwLock,
     },
     thread::{self, sleep, JoinHandle},
@@ -30,7 +30,7 @@ struct ImageHolder {
 
 struct TaskHolder {
     task: JoinHandle<()>,
-    taskChannel: Sender<ControlerMessage>,
+    taskChannel: SyncSender<ControlerMessage>,
 }
 
 pub trait ToLedwallResult<R> {
@@ -95,7 +95,7 @@ pub fn ledwallRunner(
     // We create slice runners
     for slice in slices {
         // This channel is used by this thread to ask the runners to stop
-        let (localToTaskSender, localToTaskReceiver) = channel();
+        let (localToTaskSender, localToTaskReceiver) = sync_channel(1);
 
         let taskToLocalSenderClone = taskToLocalSender.clone();
         let localSlice = slice.clone();
@@ -190,7 +190,7 @@ pub fn ledwallRunner(
 
         // Then we can wait for the end of the period
         let runtime = start.elapsed();
-        println!("before {:?}", runtime);
+        // println!("before {:?}", runtime);
 
         if let Some(remaining) = wait_time.checked_sub(runtime) {
             // TODO: Remove busy waiting and optimize this.
@@ -210,7 +210,7 @@ pub fn ledwallRunner(
         }
 
         let runtime = start.elapsed();
-        println!("after {:?}", runtime);
+        // println!("after {:?}", runtime);
 
         start = Instant::now();
 
@@ -250,6 +250,7 @@ pub fn ledwallRunner(
 
 fn terminateSliceRunners(tasks: Vec<TaskHolder>) {
     for task in tasks {
+        println!("terminate slices");
         match task.taskChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
@@ -277,6 +278,8 @@ fn sliceRunner(
     slice: SliceData,
     notificationSender: Sender<Notification>,
 ) -> Result<(), LedwallError> {
+    println!("slice");
+
     // Create the adapter to get the frames
     let mut spout = spoutlib::new_spout_adapter();
 
@@ -364,6 +367,8 @@ fn sliceRunner(
             Ok(ControlerMessage::Tick(fId)) => localFrameIdentifier = fId,
             Err(_) => return terminateSlabRunners(slabRunners),
         }
+
+        println!(" fid{}", localFrameIdentifier);
 
         // We do the same for messages comming from child threads
         match slabToLocalReceiver.try_recv() {
@@ -465,6 +470,7 @@ fn sliceRunner(
 
 fn terminateSlabRunners(runners: Vec<SlabRunner>) -> Result<(), LedwallError> {
     for runner in runners {
+        println!("terminating slabs");
         match runner.sliceChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
@@ -613,10 +619,13 @@ fn slabRunner(
             }
             Err(TryRecvError::Empty) => (),
             Ok(ControlerMessage::Terminate) => {
+                println!("termi");
                 return Ok(());
             }
             _ => (),
         }
+
+        println!("loop tcp");
 
         let mut tcpConnection;
         match getTcpConnection(&slabConnection, notificationSender.clone()) {
