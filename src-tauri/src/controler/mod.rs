@@ -101,8 +101,6 @@ pub fn ledwallRunner(
         let localSlice = slice.clone();
         let notificationSenderCopy = notificationSender.clone();
         let task = thread::spawn(move || {
-            let name = localSlice.getSpoutName().clone();
-
             match sliceRunner(
                 localToTaskReceiver,
                 localSlice,
@@ -119,7 +117,7 @@ pub fn ledwallRunner(
                 message: "Thread terminé".into(),
                 kind: "info".into(),
                 consoleOnly: true,
-                origin: format!("Slice {} thread", name),
+                origin: format!("Slice {} thread", slice.getSliceId()),
             });
         });
 
@@ -313,7 +311,7 @@ fn sliceRunner(
             message: "Impossible d'ouvrir DirectX 11. Arret du sender.".into(),
             kind: "error".into(),
             consoleOnly: false,
-            origin: format!("Slice {}", slice.getSpoutName()),
+            origin: format!("Slice {}", slice.getSliceId()),
         });
         eprintln!("Unable to open DX11, aborting !");
         return Err(LedwallError::LedwallDX11);
@@ -402,7 +400,7 @@ fn sliceRunner(
                     message: format!("Le sender spout {} a été reconnecté.", slice.getSpoutName(),),
                     kind: "success".into(),
                     consoleOnly: false,
-                    origin: format!("Slice {}", slice.getSpoutName()),
+                    origin: format!("Slice {}", slice.getSliceId()),
                 });
             }
             if SpoutDXAdapter::AdapterIsUpdated(localSpout.as_mut()) {
@@ -427,7 +425,7 @@ fn sliceRunner(
                     ),
                     kind: "info".into(),
                     consoleOnly: true,
-                    origin: format!("Slice {}", slice.getSpoutName()),
+                    origin: format!("Slice {}", slice.getSliceId()),
                 });
             } else {
                 // Else, we can immedialty release the image holder to make it available to child threads
@@ -449,7 +447,7 @@ fn sliceRunner(
                     message: format!("Impossible de recevoir une image depuis le sender spout {}. Verifiez la connexion.", slice.getSpoutName()),
                     kind: "error".into(),
                     consoleOnly: false,
-                    origin: format!("Slice {}", slice.getSpoutName()),
+                    origin: format!("Slice {}",  slice.getSliceId()),
                 });
             }
 

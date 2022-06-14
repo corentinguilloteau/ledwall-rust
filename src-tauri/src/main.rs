@@ -21,25 +21,8 @@ async fn close_splashscreen(window: tauri::Window) {
     // Show main window
     window.get_window("main").unwrap().show().unwrap();
 }
-struct ImageSize {
-    height: u32,
-    width: u32,
-}
-
-struct ImageHolder {
-    image: Vec<u8>,
-    image_size: ImageSize,
-}
 
 fn main() {
-    let safeImageHolder = Arc::new(Mutex::new(ImageHolder {
-        image: vec![],
-        image_size: ImageSize {
-            width: 0,
-            height: 0,
-        },
-    }));
-
     let (notificationSender, notificationReceiver) = channel();
 
     let safeLedwallStatusHolder =
@@ -66,7 +49,6 @@ fn main() {
             });
             Ok(())
         })
-        .manage(safeImageHolder)
         .manage(safeLedwallStatusHolder)
         .invoke_handler(tauri::generate_handler![
             api::fetchSpoutNames,

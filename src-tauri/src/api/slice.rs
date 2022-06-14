@@ -19,6 +19,10 @@ impl SliceData {
         return self.slabs.clone();
     }
 
+    pub fn getSliceId(&self) -> u32 {
+        return self.id;
+    }
+
     pub fn getSlabWidth(&self) -> u32 {
         return self.slabWidth;
     }
