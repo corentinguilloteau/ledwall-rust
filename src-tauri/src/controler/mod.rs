@@ -194,7 +194,7 @@ pub fn ledwallRunner(
             // Using sleep tends to add an extra 15ms to the waiting time which is a problem.
             // This is why a busy wait is used
             // Figuring out why may be the solution here
-            while wait_time.checked_sub(start.elapsed()).is_some() {}
+            //while wait_time.checked_sub(start.elapsed()).is_some() {}
             // We also need to add a sync with all slab senders
         } else {
             let _r = notificationSender.send(Notification {
