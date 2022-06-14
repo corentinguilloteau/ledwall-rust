@@ -21,13 +21,9 @@ class SliceControlErrors {
 export function computeSliceControl(slice: Slice, sliceId: number) {
 	let errors = [];
 
-	console.log(slice.spoutName);
-
 	if (slice.spoutName === null) {
 		errors.push(SliceControlErrors.NoSpoutName(sliceId));
 	}
-
-	console.log(errors);
 
 	return errors;
 }

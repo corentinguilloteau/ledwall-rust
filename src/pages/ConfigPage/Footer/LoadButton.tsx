@@ -23,8 +23,6 @@ async function loadConfig(dispatchFunction: Dispatch<any>) {
 
 	let config: Slice[] = JSON.parse(serializedConfig);
 
-	console.log(config);
-
 	dispatchFunction(loadSlabs(config));
 }
 

@@ -14,7 +14,6 @@ const queryClient = new QueryClient();
 
 function Index() {
 	useEffect(() => {
-		console.log("close");
 		setTimeout(() => invoke("close_splashscreen"), 2000);
 	}, []);
 

@@ -15,8 +15,6 @@ export default function useRPC<T>(userCall: RPCFunction<T>, notifyError: boolean
 	async function handledCall(...localArgs: any[]): Promise<T | undefined> {
 		setCallState("loading");
 
-		console.log(localArgs);
-
 		try {
 			let result = await userCall(...args, ...localArgs);
 			setCallState("success");
@@ -27,8 +25,6 @@ export default function useRPC<T>(userCall: RPCFunction<T>, notifyError: boolean
 			setCallState("error");
 			setResponse(undefined);
 			setError(e);
-
-			console.log(e);
 
 			throw e;
 		}

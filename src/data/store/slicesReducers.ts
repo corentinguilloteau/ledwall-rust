@@ -46,8 +46,6 @@ export function removeSliceReducer(state: Draft<SlicesState>, action: PayloadAct
 			state.errors.sliceErrors[removedSlice[0].id] = [];
 		}
 	}
-
-	console.log(current(state.errors.sliceErrors));
 }
 
 export function setSliceWidthReducer(state: Draft<SlicesState>, action: PayloadAction<SlicePayload<number>>) {

@@ -15,9 +15,7 @@ export default function useRemoteState<T>(key: string): [T | null, RPCStatus] {
 					setState(res);
 				}
 			})
-			.catch((err) => {
-				console.log(err);
-			});
+			.catch((err) => {});
 
 		let unsub = listen("backend-data-update", (event) => {
 			if (event.payload === key) {
@@ -27,9 +25,7 @@ export default function useRemoteState<T>(key: string): [T | null, RPCStatus] {
 							setState(res);
 						}
 					})
-					.catch((err) => {
-						console.log(err);
-					});
+					.catch((err) => {});
 			}
 		});
 

@@ -30,7 +30,6 @@ export default function SlicesContainer() {
 	}, [slices]);
 
 	function onTabChange(active: number, tabKey: string) {
-		console.log("cahnged");
 		if (tabKey === "addTab") {
 			dispatch(addSlice());
 

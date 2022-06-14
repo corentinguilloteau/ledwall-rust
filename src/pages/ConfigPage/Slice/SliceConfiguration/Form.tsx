@@ -34,7 +34,6 @@ export default function Form(props: FormProps) {
 	let spoutSelect;
 
 	if (isError || data === undefined) {
-		console.log(error);
 		spoutSelect = (
 			<Select
 				label="Entrée Spout"
@@ -74,7 +73,6 @@ export default function Form(props: FormProps) {
 					data={data}
 					value={slice.spoutName}
 					onChange={(val) => {
-						console.log(val);
 						if (val !== null) {
 							dispatch(setSliceSpoutName({ sliceID: props.sliceId, payload: val }));
 						}
