@@ -249,14 +249,20 @@ pub fn ledwallRunner(
 }
 
 fn terminateSliceRunners(tasks: Vec<TaskHolder>) {
+    let mut stoppedRunners = vec![];
+
     for task in tasks {
         println!("terminate slices");
         match task.taskChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
-                let _ = task.task.join();
+                stoppedRunners.push(task);
             }
         }
+    }
+
+    for task in stoppedRunners {
+        let _ = task.task.join();
     }
 }
 
@@ -469,14 +475,19 @@ fn sliceRunner(
 }
 
 fn terminateSlabRunners(runners: Vec<SlabRunner>) -> Result<(), LedwallError> {
+    let mut stoppedRunners = vec![];
     for runner in runners {
         println!("terminating slabs");
         match runner.sliceChannel.send(ControlerMessage::Terminate) {
             Err(_) => (),
             _ => {
-                let _ = runner.thread.join();
+                stoppedRunners.push(runner);
             }
         }
+    }
+
+    for runner in stoppedRunners {
+        let _ = runner.thread.join();
     }
 
     return Ok(());
