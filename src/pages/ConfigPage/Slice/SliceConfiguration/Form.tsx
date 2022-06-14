@@ -29,7 +29,7 @@ export default function Form(props: FormProps) {
 
 	const dispatch = useDispatch();
 
-	const { isLoading, isError, data, error } = useQuery("spoutNames", fetchSpoutNames);
+	const { isLoading, isError, data } = useQuery("spoutNames", fetchSpoutNames);
 
 	let spoutSelect;
 

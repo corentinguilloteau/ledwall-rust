@@ -1,5 +1,5 @@
 import { useMantineTheme } from "@mantine/core";
-import { PlayerPlay, PlayerStop, TestPipe } from "tabler-icons-react";
+import { PlayerPlay, PlayerStop } from "tabler-icons-react";
 import { LedwallControlStatus } from "../../data/types/LedwallControlTypes";
 
 interface ControlPageIconProps {

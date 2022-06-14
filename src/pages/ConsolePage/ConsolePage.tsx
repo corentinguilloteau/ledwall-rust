@@ -1,5 +1,4 @@
-import { Group, Paper, Title, Text, ScrollArea, Grid, Space } from "@mantine/core";
-import { maxHeight } from "@mui/system";
+import { Text, ScrollArea } from "@mantine/core";
 import React, { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../data/store/store";

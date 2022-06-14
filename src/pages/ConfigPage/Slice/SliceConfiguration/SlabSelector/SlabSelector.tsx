@@ -1,6 +1,4 @@
 import { Container, NumberInput } from "@mantine/core";
-import React, { Component } from "react";
-
 interface SlabSelectorProps {
 	slabId: number;
 	onSlabIdChange: (payload: number) => void;

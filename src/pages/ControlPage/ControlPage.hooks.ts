@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "react-query";
 import { LedwallStatusKeys } from "../../data/query/QueryKeys";
 

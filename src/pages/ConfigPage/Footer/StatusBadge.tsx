@@ -1,4 +1,4 @@
-import { Badge, Button, Tooltip, Text } from "@mantine/core";
+import { Badge, Tooltip, Text } from "@mantine/core";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../data/store/store";
 import { SlicesErrors } from "../../../data/types/Slice";

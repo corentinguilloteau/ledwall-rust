@@ -1,5 +1,3 @@
-import { idText } from "typescript";
-
 interface Slice {
 	id: number;
 	spoutName: string | null;

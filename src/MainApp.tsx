@@ -1,5 +1,5 @@
-import { AppShell, Badge, Box, Button, Grid, Group, SimpleGrid } from "@mantine/core";
-import React, { useState } from "react";
+import { AppShell, Grid } from "@mantine/core";
+import { useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import Footer from "./components/Footer/Footer";
 import Navbar from "./components/NavBar/Navbar";
