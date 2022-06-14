@@ -52,10 +52,10 @@ export function configHasErrors(errors: SlicesErrors) {
 	return (
 		Object.values(errors.slabErrors)
 			.map((slab) => slab.length)
-			.reduce((p, c) => p + c) +
+			.reduce((p, c) => p + c, 0) +
 		Object.values(errors.sliceErrors)
 			.map((slice) => slice.length)
-			.reduce((p, c) => p + c)
+			.reduce((p, c) => p + c, 0)
 	);
 }
 

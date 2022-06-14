@@ -1,10 +1,11 @@
-import { Button, Group, Select } from "@mantine/core";
+import { Button, Group, Select, Tooltip } from "@mantine/core";
 import { invoke } from "@tauri-apps/api";
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { HandStop } from "tabler-icons-react";
 import { RootState } from "../../data/store/store";
 import { isTestType, LedwallControlHolder, LedwallControlTests } from "../../data/types/LedwallControlTypes";
+import { configHasErrors } from "../../data/types/Slice";
 import useRPC from "../../hooks/useRPC";
 
 type OnOff = "on" | "off";
@@ -76,10 +77,13 @@ function getListOfTestChoices(): TestChoice[] {
 
 function ControlPageButtons(props: ControlPageButtonsProps) {
 	const slices = useSelector((state: RootState) => state.slices.slices);
+	const errors = useSelector((state: RootState) => state.slices.errors);
 
 	let [currentTest, setCurrentTest] = useState("number" as LedwallControlTests);
 
 	let [testStatus, , , testCommand] = useRPC(invoke, true, "testSender");
+
+	let hasErrors = configHasErrors(errors) > 0;
 
 	let [startStopButton, startStopButtonEnabled, testButtonEnabled] = getState(props.status);
 	let [startStatus, , , sendStartCommand] = useRPC(invoke, true, "startFrameSender");
@@ -98,15 +102,23 @@ function ControlPageButtons(props: ControlPageButtonsProps) {
 	switch (startStopButton) {
 		case "on":
 			startStopButtonComponent = (
-				<Button
-					style={{ flex: "0 0 auto" }}
-					color={OnOffButtonColor[startStopButton]}
-					disabled={!startStopButtonEnabled}
-					onClick={OnOffButtonClick[startStopButton]}
-					loading={startStatus === "loading"}
-					leftIcon={startStatus === "error" ? <HandStop /> : null}>
-					{OnOffButtonText[startStopButton]}
-				</Button>
+				<Tooltip
+					wrapLines
+					withArrow
+					transition="fade"
+					transitionDuration={200}
+					label="La configuration contient des erreurs."
+					disabled={!hasErrors}>
+					<Button
+						style={{ flex: "0 0 auto" }}
+						color={OnOffButtonColor[startStopButton]}
+						disabled={!startStopButtonEnabled || hasErrors}
+						onClick={OnOffButtonClick[startStopButton]}
+						loading={startStatus === "loading"}
+						leftIcon={startStatus === "error" ? <HandStop /> : null}>
+						{OnOffButtonText[startStopButton]}
+					</Button>
+				</Tooltip>
 			);
 			break;
 		case "off":

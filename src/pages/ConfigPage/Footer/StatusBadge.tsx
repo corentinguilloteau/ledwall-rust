@@ -30,6 +30,7 @@ export default function StatusBadge() {
 			wrapLines
 			width={350}
 			withArrow
+			color="red"
 			placement="end"
 			transition="fade"
 			transitionDuration={200}
