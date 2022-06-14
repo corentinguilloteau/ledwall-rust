@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct SliceData {
+    id: u32,
     spoutName: String,
     slabHeight: u32,
     slabWidth: u32,

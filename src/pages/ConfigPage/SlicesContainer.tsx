@@ -73,7 +73,7 @@ export default function SlicesContainer() {
 						<Tabs.Tab
 							tabKey={(index + 1).toString()}
 							key={index}
-							label={<SliceLabel sliceId={index} label={"Slice " + index} />}
+							label={<SliceLabel sliceId={index} label={"Slice " + slice.id} />}
 							style={{ overflow: "auto" }}>
 							<SliceConfiguration sliceId={index}></SliceConfiguration>
 						</Tabs.Tab>

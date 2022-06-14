@@ -4,6 +4,7 @@ import * as reducers from "./slicesReducers";
 
 const initialState: SlicesState = {
 	slices: [],
+	errors: { slabErrors: {}, sliceErrors: {} },
 };
 
 export const slicesSlice = createSlice({
